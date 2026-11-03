@@ -1,0 +1,2713 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Accounting Tycoon 3D - Industrial Warehouse Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #d8d2c5;
+            color: #3d312a;
+            overflow: hidden;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        #canvas-3d-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+        .cozy-pill {
+            background: rgba(252, 249, 242, 0.96);
+            backdrop-filter: blur(8px);
+            border: 2px solid #e2d6c1;
+            box-shadow: 0 8px 20px rgba(74, 53, 37, 0.12), 0 2px 0 #d5c5ab;
+        }
+        .cozy-card {
+            background: #fcf9f2;
+            border: 2px solid #e2d6c1;
+            box-shadow: 0 10px 25px rgba(74, 53, 37, 0.12);
+        }
+        .cozy-modal {
+            background: #faf6ee;
+            border: 3px solid #d8c6ac;
+            box-shadow: 0 25px 60px rgba(45, 32, 22, 0.32);
+        }
+        .beige-input {
+            background: #ffffff;
+            border: 2px solid #d6c7b2;
+            color: #2c221e;
+            transition: all 0.15s ease;
+        }
+        .beige-input:focus {
+            border-color: #e07a47;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(224, 122, 71, 0.2);
+        }
+        .dock-item {
+            transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .dock-item:hover {
+            transform: translateY(-5px);
+            background: #f4ece0;
+        }
+        .dock-item.active {
+            background: #fde8d7;
+            border-color: #e07a47;
+            color: #c85a28;
+            transform: translateY(-4px);
+        }
+        .cozy-bubble-3d {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            background: #fcfaf4;
+            border: 2px solid #cbb89d;
+            border-radius: 14px;
+            padding: 5px 11px;
+            box-shadow: 0 4px 12px rgba(58, 42, 29, 0.15);
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+            white-space: nowrap;
+            z-index: 12;
+        }
+        .cozy-bubble-3d:hover {
+            transform: translate(-50%, -108%) scale(1.06);
+            border-color: #2563eb;
+        }
+        .cozy-bubble-3d::after {
+            content: '';
+            position: absolute;
+            bottom: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 7px 6px 0;
+            border-style: solid;
+            border-color: #fcfaf4 transparent;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0e8da;
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c9b79c;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden relative">
+
+    <!-- 1. THREE.JS ISOMETRIC 3D WAREHOUSE CANVAS -->
+    <div id="canvas-3d-container"></div>
+
+    <!-- 2. FLOATING 3D BUBBLES OVER STATIONS -->
+    <div id="labels-3d-container" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <!-- 3. TOP STATUS BAR -->
+    <header class="fixed top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-full max-w-4xl px-3 flex justify-center">
+        <div class="cozy-pill rounded-full px-5 py-2 pointer-events-auto flex items-center gap-4 md:gap-6 text-xs md:text-sm">
+            <!-- Day & Time -->
+            <div class="flex items-center gap-2.5 pr-3 border-r border-[#e2d6c1]">
+                <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-base shadow-inner">
+                    <i class="fa-solid fa-warehouse"></i>
+                </div>
+                <div>
+                    <div class="font-extrabold text-stone-800 leading-tight" id="hud-day-text">Ngày 1 - Sáng</div>
+                    <div class="text-[11px] font-bold text-stone-500 mono" id="hud-clock-text">08:30</div>
+                </div>
+            </div>
+
+            <!-- Cash Balance -->
+            <div class="flex items-center gap-2 pr-3 border-r border-[#e2d6c1]">
+                <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-stone-400 uppercase">Ngân sách nâng cấp</div>
+                    <div id="hud-cash" class="font-extrabold text-emerald-700 mono text-sm">$1,000</div>
+                </div>
+            </div>
+
+            <!-- XP / Reputation -->
+            <div class="flex items-center gap-2 pr-3 border-r border-[#e2d6c1]">
+                <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-stone-400 uppercase">Danh tiếng</div>
+                    <div class="font-extrabold text-stone-800"><span id="hud-xp" class="mono">0</span> XP</div>
+                </div>
+            </div>
+
+            <!-- Accuracy -->
+            <div class="hidden sm:flex items-center gap-2 pr-3 border-r border-[#e2d6c1]">
+                <div class="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-stone-400 uppercase">Độ chính xác</div>
+                    <div id="hud-accuracy" class="font-extrabold text-teal-700 mono">100%</div>
+                </div>
+            </div>
+
+            <!-- Beginner Mode & Collision Wireframe Toggle -->
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleBeginnerGuide()" id="btn-beginner-mode" class="px-2.5 py-1 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-sm flex items-center gap-1" title="Chế độ Cầm Tay Chỉ Việc cho người mới">
+                    <i class="fa-solid fa-graduation-cap"></i> <span class="hidden md:inline">Người Mới: BẬT</span>
+                </button>
+                <button onclick="toggleColliderDebug()" id="btn-collider-debug" class="px-2.5 py-1 rounded-full bg-[#efe7d8] hover:bg-[#e3d7c3] text-stone-700 font-bold text-xs" title="Hiện/Ẩn khung va chạm vật lý">
+                    <i class="fa-solid fa-cube"></i> <span class="hidden md:inline">Va chạm</span>
+                </button>
+                <button onclick="resetIsoCamera()" class="px-2.5 py-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs" title="Căn lại góc nhìn">
+                    <i class="fa-solid fa-compass"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 4. RIGHT SIDEBAR CARDS (ACTIVITY & SYLLABUS QUESTS) -->
+    <aside class="fixed top-20 right-4 z-20 w-68 md:w-76 pointer-events-none flex flex-col gap-3">
+        <!-- Card 1: Hoạt động Kho -->
+        <div class="cozy-card rounded-2xl p-3.5 pointer-events-auto">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#e8decb]">
+                <div class="flex items-center gap-2 font-extrabold text-stone-800 text-sm">
+                    <i class="fa-solid fa-clipboard-list text-[#2563eb]"></i> Hoạt động nhà kho
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900">Perpetual</span>
+            </div>
+            <div class="space-y-1.5 text-xs">
+                <div onclick="walkToAndOpenStation(2)" class="flex items-center justify-between p-1.5 rounded-xl hover:bg-[#f3ece0] cursor-pointer transition">
+                    <span class="flex items-center gap-2 text-stone-600 font-semibold">
+                        <i class="fa-solid fa-file-invoice text-stone-400 w-4 text-center"></i> Hóa đơn chờ định khoản
+                    </span>
+                    <span id="act-pending-invoices" class="font-extrabold text-emerald-700 mono">3</span>
+                </div>
+                <div onclick="walkToAndOpenStation(3)" class="flex items-center justify-between p-1.5 rounded-xl hover:bg-[#f3ece0] cursor-pointer transition">
+                    <span class="flex items-center gap-2 text-stone-600 font-semibold">
+                        <i class="fa-solid fa-truck-ramp-box text-stone-400 w-4 text-center"></i> Kiện hàng FOB chờ phân loại
+                    </span>
+                    <span id="act-fob-boxes" class="font-extrabold text-[#c85a28] mono">2</span>
+                </div>
+                <div onclick="walkToAndOpenStation(4)" class="flex items-center justify-between p-1.5 rounded-xl hover:bg-[#f3ece0] cursor-pointer transition">
+                    <span class="flex items-center gap-2 text-stone-600 font-semibold">
+                        <i class="fa-solid fa-boxes-stacked text-stone-400 w-4 text-center"></i> Lô kệ xanh-cam (FIFO/WAC)
+                    </span>
+                    <span class="font-extrabold text-stone-800 mono">4 lô</span>
+                </div>
+                <div onclick="walkToAndOpenStation(5)" class="flex items-center justify-between p-1.5 rounded-xl hover:bg-[#f3ece0] cursor-pointer transition">
+                    <span class="flex items-center gap-2 text-stone-600 font-semibold">
+                        <i class="fa-solid fa-barcode text-stone-400 w-4 text-center"></i> Mặt hàng chờ quét LCNRV
+                    </span>
+                    <span class="font-extrabold text-rose-700 mono">3/3 ›</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Nhiệm vụ Đề cương (Syllabus Quests) -->
+        <div class="cozy-card rounded-2xl p-3.5 pointer-events-auto">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#e8decb]">
+                <div class="flex items-center gap-2 font-extrabold text-stone-800 text-sm">
+                    <i class="fa-solid fa-list-check text-emerald-700"></i> Nhiệm vụ hôm nay
+                </div>
+                <span class="text-[11px] font-bold text-stone-500">Ch.5 & Ch.6</span>
+            </div>
+
+            <div class="space-y-2 text-xs">
+                <button onclick="walkToAndOpenStation(1)" class="w-full text-left p-2 rounded-xl bg-[#f5efe4] hover:bg-[#ece2d0] transition flex items-center justify-between">
+                    <span class="flex items-center gap-2 font-bold text-stone-700">
+                        <span id="quest-icon-1" class="w-4 h-4 rounded-full border-2 border-stone-400 inline-flex items-center justify-center text-[9px]"></span>
+                        Tính Gross Profit (E5.9a, E5.10a)
+                    </span>
+                    <span id="quest-prog-1" class="mono font-extrabold text-[#c85a28]">0/2</span>
+                </button>
+
+                <button onclick="walkToAndOpenStation(2)" class="w-full text-left p-2 rounded-xl bg-[#f5efe4] hover:bg-[#ece2d0] transition flex items-center justify-between">
+                    <span class="flex items-center gap-2 font-bold text-stone-700">
+                        <span id="quest-icon-2" class="w-4 h-4 rounded-full border-2 border-stone-400 inline-flex items-center justify-center text-[9px]"></span>
+                        Định khoản Mua/Bán (E5.2–P5.4a)
+                    </span>
+                    <span id="quest-prog-2" class="mono font-extrabold text-[#c85a28]">0/3</span>
+                </button>
+
+                <button onclick="walkToAndOpenStation(3)" class="w-full text-left p-2 rounded-xl bg-[#f5efe4] hover:bg-[#ece2d0] transition flex items-center justify-between">
+                    <span class="flex items-center gap-2 font-bold text-stone-700">
+                        <span id="quest-icon-3" class="w-4 h-4 rounded-full border-2 border-stone-400 inline-flex items-center justify-center text-[9px]"></span>
+                        Kiểm kho FOB & Ký gửi (BE6.1)
+                    </span>
+                    <span id="quest-prog-3" class="mono font-extrabold text-[#c85a28]">0/3</span>
+                </button>
+            </div>
+
+            <div class="mt-3 pt-2 border-t border-[#e8decb]">
+                <div class="text-[10px] font-extrabold text-stone-400 uppercase tracking-wider mb-1.5">NHIỆM VỤ CHƯƠNG 6 NÂNG CAO</div>
+                <div class="space-y-2 text-[11px]">
+                    <div onclick="walkToAndOpenStation(4)" class="cursor-pointer hover:opacity-80">
+                        <div class="flex justify-between font-bold text-stone-600 mb-0.5">
+                            <span>Tính giá FIFO & WAC (E6.14, P6.5)</span>
+                            <span id="quest-prog-4" class="mono">0/2</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-[#e6dec8] rounded-full overflow-hidden">
+                            <div id="quest-bar-4" class="h-full bg-amber-500 w-0 transition-all"></div>
+                        </div>
+                    </div>
+                    <div onclick="walkToAndOpenStation(5)" class="cursor-pointer hover:opacity-80">
+                        <div class="flex justify-between font-bold text-stone-600 mb-0.5">
+                            <span>Quét giá LCNRV (BE6.6, E6.8, E6.9)</span>
+                            <span id="quest-prog-5" class="mono">0/2</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-[#e6dec8] rounded-full overflow-hidden">
+                            <div id="quest-bar-5" class="h-full bg-emerald-600 w-0 transition-all"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 5. TOAST NOTIFICATION -->
+    <div id="toast-3d" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-0 transition-all duration-300">
+        <div class="cozy-pill px-4 py-2 rounded-2xl text-xs font-extrabold text-stone-800 flex items-center gap-2 shadow-lg">
+            <i class="fa-solid fa-bell text-[#e07a47]"></i>
+            <span id="toast-3d-text">Lái xe nâng bằng WASD hoặc Click vào Trạm!</span>
+        </div>
+    </div>
+
+    <!-- 6. BOTTOM ACTION DOCK -->
+    <footer class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-full max-w-4xl px-3 flex justify-center">
+        <div class="cozy-pill rounded-3xl px-3 py-2 pointer-events-auto flex items-center gap-1.5 md:gap-2 overflow-x-auto max-w-full">
+            <button onclick="walkToAndOpenStation(1)" id="dock-btn-1" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[74px]">
+                <i class="fa-solid fa-chart-pie text-base text-amber-700 mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">1. Lợi nhuận</span>
+                <span class="text-[9px] text-stone-400 font-bold">E5.9a, 5.10a</span>
+            </button>
+
+            <button onclick="walkToAndOpenStation(2)" id="dock-btn-2" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[74px]">
+                <i class="fa-solid fa-cash-register text-base text-emerald-700 mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">2. Mua & Bán</span>
+                <span class="text-[9px] text-stone-400 font-bold">E5.2 - P5.4a</span>
+            </button>
+
+            <button onclick="walkToAndOpenStation(3)" id="dock-btn-3" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[74px]">
+                <i class="fa-solid fa-truck-fast text-base text-sky-700 mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">3. Kho FOB</span>
+                <span class="text-[9px] text-stone-400 font-bold">BE6.1, P6.1</span>
+            </button>
+
+            <button onclick="walkToAndOpenStation(4)" id="dock-btn-4" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[74px]">
+                <i class="fa-solid fa-boxes-stacked text-base text-purple-700 mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">4. FIFO/WAC</span>
+                <span class="text-[9px] text-stone-400 font-bold">E6.14, P6.5</span>
+            </button>
+
+            <button onclick="walkToAndOpenStation(5)" id="dock-btn-5" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[74px]">
+                <i class="fa-solid fa-tags text-base text-rose-700 mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">5. LCNRV</span>
+                <span class="text-[9px] text-stone-400 font-bold">BE6.6, E6.8</span>
+            </button>
+
+            <div class="h-8 w-[1.5px] bg-[#e2d6c1] mx-1"></div>
+
+            <button onclick="toggleCalculator()" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[66px]">
+                <i class="fa-solid fa-calculator text-base text-stone-700 mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">Máy tính</span>
+                <span class="text-[9px] text-stone-400 font-bold">98% / 2%</span>
+            </button>
+
+            <button onclick="toggleCheatSheet()" class="dock-item px-3 py-1.5 rounded-2xl border border-transparent flex flex-col items-center min-w-[66px]">
+                <i class="fa-solid fa-book-open text-base text-[#c85a28] mb-0.5"></i>
+                <span class="text-[11px] font-extrabold text-stone-700">Sổ tay</span>
+                <span class="text-[9px] text-stone-400 font-bold">Công thức</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- 7. CENTERED POP-UP MODAL FOR EXERCISES -->
+    <div id="exercise-modal-backdrop" class="fixed inset-0 z-30 bg-stone-900/30 backdrop-blur-[2px] hidden items-center justify-center p-3 md:p-6">
+        <div class="cozy-modal w-full max-w-4xl max-h-[88vh] rounded-3xl flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-5 py-3.5 bg-[#f2eadb] border-b-2 border-[#dfd1bc] flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="popup-station-badge" class="w-10 h-10 rounded-2xl bg-[#e07a47] text-white flex items-center justify-center text-lg font-bold shadow-sm">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 id="popup-station-title" class="font-extrabold text-base md:text-lg text-stone-800">Station 1: Profit Lab</h2>
+                            <span id="popup-station-Tag" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">Ch.5 • E5.9(a), E5.10(a)</span>
+                        </div>
+                        <p id="popup-station-desc" class="text-xs text-stone-500">Hoàn thành chứng từ tiếng Anh với sự hỗ trợ từng bước cho người mới</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="triggerQuickStepHint()" class="px-3 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-extrabold border border-emerald-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Gợi ý bước tiếp theo
+                    </button>
+                    <button onclick="toggleCalculator()" class="px-3 py-1.5 rounded-xl bg-[#e6dec8] hover:bg-[#dcd1b8] text-stone-800 text-xs font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-calculator text-amber-700"></i> Máy tính
+                    </button>
+                    <button onclick="closeStationPopup()" class="px-3.5 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-extrabold flex items-center gap-1.5">
+                        <i class="fa-solid fa-xmark"></i> Đóng (ESC)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-4">
+
+                <!-- STATION 1: PROFIT MEASUREMENT -->
+                <section id="station-view-1" class="space-y-4">
+                    <div class="p-3.5 rounded-2xl bg-emerald-50/90 border-2 border-emerald-200 text-xs text-stone-700 space-y-1.5">
+                        <div class="font-extrabold text-emerald-900 flex items-center gap-1.5 text-sm">
+                            <i class="fa-solid fa-Seedling text-emerald-600"></i> Hướng dẫn cho người mới (3 công thức vàng):
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1">
+                            <div class="bg-white p-2 rounded-xl border border-emerald-200">
+                                <span class="font-extrabold text-amber-800">1. Net Sales (Doanh thu thuần)</span><br>
+                                = <span class="mono">Sales Revenue − Returns − Discounts</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-emerald-200">
+                                <span class="font-extrabold text-emerald-800">2. Gross Profit (Lợi nhuận gộp)</span><br>
+                                = <span class="mono">Net Sales − Cost of Goods Sold</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-emerald-200">
+                                <span class="font-extrabold text-sky-800">3. Net Income (Lợi nhuận ròng)</span><br>
+                                = <span class="mono">Gross Profit − Operating Expenses</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-stone-600">Điền các ô trống <span class="text-[#c85a28] font-extrabold">[ ? ]</span> hoặc bấm nút <b>[Tính giúp]</b> bên cạnh ô:</span>
+                        <div class="flex gap-1.5">
+                            <button onclick="loadModule1Preset(0)" class="px-3 py-1 rounded-xl bg-[#e9e0ce] hover:bg-[#dfd3bc] text-xs font-bold">Đề E5.9(a)</button>
+                            <button onclick="loadModule1Preset(1)" class="px-3 py-1 rounded-xl bg-[#e9e0ce] hover:bg-[#dfd3bc] text-xs font-bold">Đề E5.10(a)</button>
+                            <button onclick="generateRandomModule1()" class="px-3 py-1 rounded-xl bg-[#e07a47] text-white text-xs font-bold">
+                                <i class="fa-solid fa-shuffle mr-1"></i>Đề Mới
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border-2 border-[#e2d6c1] p-4 shadow-sm">
+                        <div class="flex justify-between items-center border-b border-[#eee6d8] pb-2 mb-3">
+                            <div>
+                                <h3 id="m1-company-title" class="font-extrabold text-stone-800 text-sm">PW Audio Supply — Income Statement</h3>
+                                <p class="text-[11px] text-stone-400">Đơn vị tiền tệ: € (in thousands)</p>
+                            </div>
+                            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-[#f5efe4] text-stone-600 mono">IFRS Format</span>
+                        </div>
+                        <div id="m1-statement-rows" class="space-y-2 text-xs md:text-sm"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <div id="m1-feedback" class="text-xs font-bold"></div>
+                        <div class="flex gap-2">
+                            <button onclick="solveOneStepModule1()" class="px-3.5 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-extrabold">
+                                <i class="fa-solid fa-shoe-prints mr-1"></i>Giải 1 ô tiếp theo
+                            </button>
+                            <button onclick="solveModule1()" class="px-3.5 py-2 rounded-xl bg-[#e6dec8] hover:bg-[#dcd1b8] text-stone-700 text-xs font-bold">
+                                Điền hết đáp án
+                            </button>
+                            <button onclick="checkModule1()" class="px-5 py-2 rounded-xl bg-[#e07a47] hover:bg-[#cf6a38] text-white text-xs font-extrabold shadow">
+                                <i class="fa-solid fa-check mr-1"></i>Kiểm tra (Check)
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STATION 2: JOURNAL ENTRIES -->
+                <section id="station-view-2" class="space-y-4 hidden">
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-[#f2eadb] p-3 rounded-2xl border border-[#dfd1bc]">
+                        <div class="flex flex-wrap gap-1.5">
+                            <button onclick="filterModule2('ALL')" id="m2-filter-ALL" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e07a47] text-white">Tất cả (8)</button>
+                            <button onclick="filterModule2('PURCHASE')" id="m2-filter-PURCHASE" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">Purchase (E5.2, E5.4a)</button>
+                            <button onclick="filterModule2('SALES')" id="m2-filter-SALES" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">Sales (BE5.3, E5.5)</button>
+                            <button onclick="filterModule2('BOTH')" id="m2-filter-BOTH" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">Discount 2/10 (P5.1-5.4)</button>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="prevModule2()" class="w-7 h-7 rounded-lg bg-white border border-[#d6c7b2] flex items-center justify-center text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+                            <span id="m2-counter" class="text-xs font-extrabold mono px-1">1 / 8</span>
+                            <button onclick="nextModule2()" class="w-7 h-7 rounded-lg bg-white border border-[#d6c7b2] flex items-center justify-center text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border-2 border-[#e2d6c1] p-4 shadow-sm space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span id="m2-role-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">BUYER VIEW</span>
+                            <span id="m2-ref-badge" class="text-xs font-bold text-stone-400 mono">Exercise E5.2</span>
+                        </div>
+                        <p id="m2-prompt-en" class="text-sm font-extrabold text-stone-800 leading-relaxed"></p>
+                        <div class="p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
+                            <i class="fa-solid fa-lightbulb text-amber-600 mt-0.5"></i>
+                            <div class="space-y-1">
+                                <div class="font-extrabold">Giải thích Tiếng Việt cho người mới:</div>
+                                <div id="m2-hint-vi"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border-2 border-[#e2d6c1] p-4 space-y-2.5">
+                        <div class="grid grid-cols-12 gap-2 text-[11px] font-extrabold text-stone-400 uppercase pb-1 border-b border-[#eee6d8]">
+                            <div class="col-span-2">Vế (Side)</div>
+                            <div class="col-span-6">Tài khoản (Account Title + Nghĩa Tiếng Việt)</div>
+                            <div class="col-span-4 text-right">Số tiền (Amount)</div>
+                        </div>
+                        <div id="m2-journal-rows" class="space-y-2"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <div id="m2-feedback" class="text-xs font-bold"></div>
+                        <div class="flex gap-2">
+                            <button onclick="hintAccountsModule2()" class="px-3.5 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-extrabold">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Chọn giúp Tên Tài Khoản
+                            </button>
+                            <button onclick="solveModule2()" class="px-3.5 py-2 rounded-xl bg-[#e6dec8] hover:bg-[#dcd1b8] text-stone-700 text-xs font-bold">
+                                Xem Đáp Án
+                            </button>
+                            <button onclick="checkModule2()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow">
+                                <i class="fa-solid fa-book-bookmark mr-1"></i>Ghi Sổ (Post Entry)
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STATION 3: FOB & CONSIGNMENT -->
+                <section id="station-view-3" class="space-y-4 hidden">
+                    <div class="p-3.5 rounded-2xl bg-sky-50 border-2 border-sky-200 text-xs text-stone-700 space-y-2">
+                        <div class="font-extrabold text-sky-900 flex items-center gap-1.5 text-sm">
+                            <i class="fa-solid fa-truck-fast text-sky-600"></i> Sơ đồ nhớ nhanh Quyền Sở Hữu Hàng Đang Đi Đường (BE6.1):
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <div class="bg-white p-2.5 rounded-xl border border-sky-200">
+                                <div class="font-extrabold text-emerald-800">🚚 FOB Shipping Point</div>
+                                <div class="text-[11px] text-stone-600 mt-0.5">Hàng lên xe là thuộc về <b>BUYER (Người mua)</b>. Nếu mình mua -> <b>INCLUDED</b>.</div>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-xl border border-sky-200">
+                                <div class="font-extrabold text-amber-800">🏢 FOB Destination</div>
+                                <div class="text-[11px] text-stone-600 mt-0.5">Chưa tới đích thì vẫn của <b>SELLER (Người bán)</b>. Nếu mình mua mà hàng đang đi -> <b>EXCLUDED</b>.</div>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-xl border border-sky-200">
+                                <div class="font-extrabold text-purple-800">🤝 Consigned Goods (Ký gửi)</div>
+                                <div class="text-[11px] text-stone-600 mt-0.5">Hàng nhận bán hộ người khác -> <b>EXCLUDED</b>. Hàng mình gửi đi nhờ bán -> <b>INCLUDED</b>.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border-2 border-[#e2d6c1] p-5 shadow-sm space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span id="m3-tag" class="text-xs font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-900">BE6.1 (a)</span>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="prevModule3()" class="w-7 h-7 rounded-lg bg-[#f2eadb] flex items-center justify-center text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+                                <span id="m3-counter" class="text-xs font-extrabold mono px-1">1 / 6</span>
+                                <button onclick="nextModule3()" class="w-7 h-7 rounded-lg bg-[#f2eadb] flex items-center justify-center text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+
+                        <p id="m3-desc-en" class="text-base font-extrabold text-stone-800 leading-relaxed"></p>
+                        <p id="m3-desc-vi" class="text-xs text-stone-600 bg-[#f6f0e4] p-3 rounded-xl border border-[#e5d9c5]"></p>
+
+                        <div id="m3-visual-diagram" class="p-3 rounded-xl bg-stone-100 border border-stone-300 flex items-center justify-around text-xs font-bold"></div>
+
+                        <div class="grid grid-cols-2 gap-4 pt-1">
+                            <button onclick="submitModule3Decision('INCLUDED')" class="py-3.5 px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500 text-emerald-900 font-extrabold text-sm flex flex-col items-center gap-1 transition">
+                                <i class="fa-solid fa-box-archive text-xl text-emerald-600"></i>
+                                <span>INCLUDED IN INVENTORY</span>
+                                <span class="text-[11px] font-semibold text-emerald-700">(Tính vào kho của mình)</span>
+                            </button>
+                            <button onclick="submitModule3Decision('EXCLUDED')" class="py-3.5 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-400 text-rose-900 font-extrabold text-sm flex flex-col items-center gap-1 transition">
+                                <i class="fa-solid fa-ban text-xl text-rose-600"></i>
+                                <span>EXCLUDED FROM INVENTORY</span>
+                                <span class="text-[11px] font-semibold text-rose-700">(Loại ra, không tính)</span>
+                            </button>
+                        </div>
+
+                        <div id="m3-feedback" class="hidden p-3.5 rounded-xl text-xs font-semibold"></div>
+                    </div>
+                </section>
+
+                <!-- STATION 4: FIFO & WAC -->
+                <section id="station-view-4" class="space-y-4 hidden">
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-[#f2eadb] p-3 rounded-2xl border border-[#dfd1bc]">
+                        <div class="flex flex-wrap gap-1.5">
+                            <button onclick="loadModule4Problem(0)" id="m4-prob-0" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e07a47] text-white">Lin Electronics (Slide)</button>
+                            <button onclick="loadModule4Problem(1)" id="m4-prob-1" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">E6.14 / E6.4 (Snowboards)</button>
+                            <button onclick="loadModule4Problem(2)" id="m4-prob-2" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">P6.5 / E6.6 (Howsham)</button>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <button onclick="setModule4Method('FIFO')" id="m4-method-FIFO" class="px-3 py-1 rounded-lg text-xs font-extrabold bg-purple-600 text-white">Phương pháp FIFO</button>
+                            <button onclick="setModule4Method('WAC')" id="m4-method-WAC" class="px-3 py-1 rounded-lg text-xs font-extrabold bg-[#e6dec8] text-stone-700">Phương pháp WAC (Bình quân)</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border-2 border-[#e2d6c1] p-4 shadow-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 id="m4-title" class="font-extrabold text-stone-800 text-sm"></h4>
+                            <span id="m4-summary-pill" class="text-xs font-extrabold px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-900 mono"></span>
+                        </div>
+                        <table class="w-full text-xs text-left border-collapse">
+                            <thead>
+                                <tr class="border-b-2 border-[#e6dec8] text-stone-500">
+                                    <th class="py-1.5">Date</th>
+                                    <th class="py-1.5">Explanation</th>
+                                    <th class="py-1.5 text-right">Units (SL)</th>
+                                    <th class="py-1.5 text-right">Unit Cost (Đơn giá)</th>
+                                    <th class="py-1.5 text-right">Total Cost (Thành tiền)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="m4-table-body" class="divide-y divide-[#f0e8da] mono"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-purple-50 border-2 border-purple-200 text-xs text-purple-950 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-extrabold"><i class="fa-solid fa-boxes-stacked mr-1"></i> Mô phỏng bốc thùng hàng từ kệ (Dành cho người mới):</span>
+                            <button onclick="visualSimulateModule4()" class="px-2.5 py-1 rounded-lg bg-purple-600 text-white font-bold text-[11px]">
+                                <i class="fa-solid fa-play mr-1"></i>Tự động bốc thùng hàng & Tính từng bước
+                            </button>
+                        </div>
+                        <div id="m4-formula-guide" class="leading-relaxed"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="bg-white p-3 rounded-2xl border-2 border-[#e2d6c1]">
+                            <label class="text-[11px] font-bold text-stone-500 block">1. Cost of Goods Available for Sale</label>
+                            <span class="text-[10px] text-stone-400 block mb-1">(Tổng tiền các lô cộng lại)</span>
+                            <input type="number" id="m4-input-cogas" class="w-full beige-input rounded-xl px-3 py-1.5 mono font-bold text-sm" placeholder="VD: 12000">
+                        </div>
+                        <div class="bg-white p-3 rounded-2xl border-2 border-[#e2d6c1]">
+                            <label class="text-[11px] font-bold text-emerald-800 block">2. Ending Inventory (<span id="m4-end-units-lbl"></span> units)</label>
+                            <span class="text-[10px] text-stone-400 block mb-1">(Giá trị hàng còn lại trong kho)</span>
+                            <input type="number" id="m4-input-ending" class="w-full beige-input rounded-xl px-3 py-1.5 mono font-bold text-sm" placeholder="Ending Inventory">
+                        </div>
+                        <div class="bg-white p-3 rounded-2xl border-2 border-[#e2d6c1]">
+                            <label class="text-[11px] font-bold text-amber-800 block">3. Cost of Goods Sold (<span id="m4-sold-units-lbl"></span> units)</label>
+                            <span class="text-[10px] text-stone-400 block mb-1">(= Ô số 1 trừ đi Ô số 2)</span>
+                            <input type="number" id="m4-input-cogs" class="w-full beige-input rounded-xl px-3 py-1.5 mono font-bold text-sm" placeholder="COGS">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <div id="m4-feedback" class="text-xs font-bold"></div>
+                        <div class="flex gap-2">
+                            <button onclick="solveModule4()" class="px-3.5 py-2 rounded-xl bg-[#e6dec8] hover:bg-[#dcd1b8] text-stone-700 text-xs font-bold">Điền Đáp Án</button>
+                            <button onclick="checkModule4()" class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold shadow">
+                                <i class="fa-solid fa-check mr-1"></i>Kiểm tra FIFO/WAC
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STATION 5: LCNRV SCANNER -->
+                <section id="station-view-5" class="space-y-4 hidden">
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-[#f2eadb] p-3 rounded-2xl border border-[#dfd1bc]">
+                        <span class="text-xs font-bold text-stone-700">
+                            <i class="fa-solid fa-hand-pointer text-rose-600 mr-1"></i>
+                            <b>Cách chơi cực dễ:</b> Ở mỗi dòng, bạn chỉ cần <b>BẤM VÀO SỐ NHỎ HƠN</b> giữa <b>Cost</b> và <b>NRV</b>! Máy sẽ tự nhân với số lượng!
+                        </span>
+                        <div class="flex gap-1.5">
+                            <button onclick="loadModule5Preset(0)" id="m5-btn-0" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">BE6.6</button>
+                            <button onclick="loadModule5Preset(1)" id="m5-btn-1" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e07a47] text-white">E6.8 (Camera Shop)</button>
+                            <button onclick="loadModule5Preset(2)" id="m5-btn-2" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700">E6.9 (Footwear)</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border-2 border-[#e2d6c1] p-4 shadow-sm overflow-x-auto">
+                        <h4 id="m5-title" class="font-extrabold text-stone-800 text-sm mb-2"></h4>
+                        <table class="w-full text-xs text-left border-collapse">
+                            <thead>
+                                <tr class="border-b-2 border-[#e6dec8] text-stone-500">
+                                    <th class="py-2 px-2">Item (Mặt hàng)</th>
+                                    <th class="py-2 px-2 text-right">Units (SL)</th>
+                                    <th class="py-2 px-2 text-center">Unit Cost (Giá gốc)</th>
+                                    <th class="py-2 px-2 text-center">NRV (Giá thuần)</th>
+                                    <th class="py-2 px-2 text-right">LCNRV = Units × Min(Cost, NRV)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="m5-tbody" class="divide-y divide-[#f0e8da]"></tbody>
+                            <tfoot>
+                                <tr class="border-t-2 border-[#d8c6ac] bg-[#faf5eb] font-extrabold">
+                                    <td colspan="4" class="py-2.5 px-2 text-right text-stone-800">TOTAL ENDING INVENTORY AT LCNRV:</td>
+                                    <td class="py-2.5 px-2 text-right">
+                                        <input type="number" id="m5-total-input" class="w-32 beige-input rounded-xl px-2.5 py-1 mono text-right text-sm font-extrabold" placeholder="Tổng cộng">
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <div id="m5-feedback" class="text-xs font-bold"></div>
+                        <div class="flex gap-2">
+                            <button onclick="autoFillModule5()" class="px-3.5 py-2 rounded-xl bg-[#e6dec8] hover:bg-[#dcd1b8] text-stone-700 text-xs font-bold">Tự động chọn số nhỏ hơn</button>
+                            <button onclick="checkModule5()" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow">
+                                <i class="fa-solid fa-check mr-1"></i>Xác nhận LCNRV
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 8. FLOATING CALCULATOR -->
+    <div id="calc-modal" class="fixed bottom-20 left-4 z-40 w-64 cozy-card rounded-3xl p-4 hidden">
+        <div class="flex justify-between items-center pb-2 mb-2 border-b border-[#e2d6c1]">
+            <span class="text-xs font-extrabold text-stone-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-calculator text-[#e07a47]"></i> Máy Tính Kế Toán
+            </span>
+            <button onclick="toggleCalculator()" class="text-stone-400 hover:text-stone-700 text-xs"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input id="calc-screen" type="text" readonly value="0" class="w-full beige-input rounded-xl px-3 py-2 text-right mono text-base font-extrabold mb-2">
+        <div class="grid grid-cols-2 gap-1.5 mb-2">
+            <button onclick="calcQuickDiscount(0.98)" class="py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-extrabold">× 98% (Trả sau CK 2%)</button>
+            <button onclick="calcQuickDiscount(0.02)" class="py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-extrabold">× 2% (Tiền CK 2/10)</button>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5 text-xs font-extrabold mono">
+            <button onclick="calcClear()" class="col-span-2 py-2 rounded-xl bg-rose-100 text-rose-800">AC</button>
+            <button onclick="calcInput('/')" class="py-2 rounded-xl bg-[#e9e0ce]">÷</button>
+            <button onclick="calcInput('*')" class="py-2 rounded-xl bg-[#e9e0ce]">×</button>
+            <button onclick="calcInput('7')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">7</button>
+            <button onclick="calcInput('8')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">8</button>
+            <button onclick="calcInput('9')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">9</button>
+            <button onclick="calcInput('-')" class="py-2 rounded-xl bg-[#e9e0ce]">−</button>
+            <button onclick="calcInput('4')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">4</button>
+            <button onclick="calcInput('5')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">5</button>
+            <button onclick="calcInput('6')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">6</button>
+            <button onclick="calcInput('+')" class="py-2 rounded-xl bg-[#e9e0ce]">+</button>
+            <button onclick="calcInput('1')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">1</button>
+            <button onclick="calcInput('2')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">2</button>
+            <button onclick="calcInput('3')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">3</button>
+            <button onclick="calcEval()" class="row-span-2 py-2 rounded-xl bg-[#e07a47] text-white">=</button>
+            <button onclick="calcInput('0')" class="col-span-2 py-2 rounded-xl bg-white border border-[#e2d6c1]">0</button>
+            <button onclick="calcInput('.')" class="py-2 rounded-xl bg-white border border-[#e2d6c1]">.</button>
+        </div>
+    </div>
+
+    <!-- 9. FORMULA CHEAT SHEET MODAL -->
+    <div id="cheatsheet-modal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="cozy-modal max-w-3xl w-full rounded-3xl p-6 max-h-[85vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b-2 border-[#dfd1bc] pb-3">
+                <h3 class="font-extrabold text-lg text-stone-800 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-[#e07a47]"></i> Sổ Tay Tóm Tắt Công Thức Chapter 5 & Chapter 6 (IFRS)
+                </h3>
+                <button onclick="toggleCheatSheet()" class="px-3 py-1 rounded-xl bg-rose-100 text-rose-800 text-xs font-extrabold">Đóng</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs leading-relaxed">
+                <div class="p-4 rounded-2xl bg-white border border-[#e2d6c1] space-y-2">
+                    <div class="font-extrabold text-[#c85a28] text-sm">CHAPTER 5: MERCHANDISING</div>
+                    <p><b>1. Công thức Lợi nhuận:</b><br>
+                    • <span class="mono">Net Sales = Sales Revenue − Sales Returns − Sales Discounts</span><br>
+                    • <span class="mono">Gross Profit = Net Sales − Cost of Goods Sold (COGS)</span><br>
+                    • <span class="mono">Gross Profit Rate = (Gross Profit ÷ Net Sales) × 100%</span><br>
+                    • <span class="mono">Net Income = Gross Profit − Operating Expenses</span></p>
+                    <p><b>2. Bút toán Người Mua (Buyer - Perpetual):</b><br>
+                    • Mua hàng: <span class="mono">Dr Inventory / Cr Cash (hoặc Accounts Payable)</span><br>
+                    • Phí ship FOB Shipping Point: <span class="mono">Dr Inventory / Cr Cash</span><br>
+                    • Trả hàng: <span class="mono">Dr Accounts Payable / Cr Inventory</span><br>
+                    • Trả tiền hưởng CK 2/10: <span class="mono">Dr A/P (100%) / Cr Cash (98%), Cr Inventory (2%)</span></p>
+                    <p><b>3. Bút toán Người Bán (Seller - Perpetual):</b><br>
+                    • Bán hàng (2 bút toán):<br>
+                      (1) <span class="mono">Dr Cash (hoặc A/R) / Cr Sales Revenue</span> (Giá bán)<br>
+                      (2) <span class="mono">Dr Cost of Goods Sold / Cr Inventory</span> (Giá gốc)</p>
+                </div>
+                <div class="p-4 rounded-2xl bg-white border border-[#e2d6c1] space-y-2">
+                    <div class="font-extrabold text-emerald-800 text-sm">CHAPTER 6: INVENTORIES</div>
+                    <p><b>1. Quyền sở hữu kho (BE6.1, P6.1):</b><br>
+                    • <b>FOB Shipping Point:</b> Thuộc về <b>Buyer</b> ngay khi lên xe.<br>
+                    • <b>FOB Destination:</b> Thuộc về <b>Seller</b> cho tới khi hàng chạm kho Buyer.<br>
+                    • <b>Consigned Goods:</b> Thuộc về bên gửi (Consignor), không tính vào kho bên nhận bán hộ (Consignee).</p>
+                    <p><b>2. Tính giá FIFO & WAC (E6.14, P6.5):</b><br>
+                    • <b>FIFO (Nhập trước xuất trước):</b> Bán lô cũ nhất trước -> Tồn kho cuối kỳ (<span class="mono">Ending Inventory</span>) nằm ở các lô <b>mới nhất</b>.<br>
+                    • <b>WAC (Bình quân gia quyền):</b> <span class="mono">Unit Cost = Tổng tiền COGAS ÷ Tổng số lượng Available</span>.</p>
+                    <p><b>3. LCNRV (BE6.6, E6.8, E6.9):</b><br>
+                    • So sánh từng mặt hàng: Chọn <span class="mono">Min(Unit Cost, NRV) × Units</span> rồi cộng tổng.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // GLOBAL GAME STATE
+        // =====================================================
+        let playerCash = 1000;
+        let playerXP = 0;
+        let totalAttempts = 0;
+        let correctAttempts = 0;
+        let activeStationId = 1;
+        let isPopupOpen = false;
+        let beginnerMode = true;
+        let showColliders = false;
+        let questProgress = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        let questTargets  = { 1: 2, 2: 3, 3: 3, 4: 2, 5: 2 };
+        let gameMinutes = 8 * 60 + 30;
+
+        const STATIONS_META = [
+            null,
+            {
+                id: 1,
+                title: "Station 1: Profit Lab",
+                tag: "Ch.5 • E5.9(a), E5.10(a)",
+                desc: "Bàn kiểm toán Lợi nhuận gộp (Gross Profit) & Báo cáo kết quả kinh doanh",
+                icon: "fa-chart-pie",
+                color: "#d97706",
+                pos: { x: -6, z: 0 },
+                standPos: { x: -3.6, z: 0 }
+            },
+            {
+                id: 2,
+                title: "Station 2: Purchase & Sales Desk",
+                tag: "Ch.5 • E5.2, BE5.3, P5.1–P5.4a",
+                desc: "Quầy ghi nhận Hóa đơn Mua hàng, Bán hàng & Chiết khấu 2/10, n/30",
+                icon: "fa-cash-register",
+                color: "#059669",
+                pos: { x: -6, z: 3.8 },
+                standPos: { x: -3.6, z: 3.8 }
+            },
+            {
+                id: 3,
+                title: "Station 3: FOB Receiving Zone",
+                tag: "Ch.6 • BE6.1, BE6.2, P6.1",
+                desc: "Khu tập kết thùng carton kẻ vạch vàng: Xác định quyền sở hữu FOB & Hàng ký gửi",
+                icon: "fa-truck-fast",
+                color: "#0284c7",
+                pos: { x: -6, z: 7 },
+                standPos: { x: -3.6, z: 7 }
+            },
+            {
+                id: 4,
+                title: "Station 4: High-Bay FIFO & WAC Rack",
+                tag: "Ch.6 • E6.14, E6.15, P6.5, P6.9",
+                desc: "Hệ thống kệ cao tầng khung xanh-cam: Tính giá xuất kho FIFO & Bình quân WAC",
+                icon: "fa-boxes-stacked",
+                color: "#2563eb",
+                pos: { x: -6, z: -5.6 },
+                standPos: { x: -3.6, z: -2.2 }
+            },
+            {
+                id: 5,
+                title: "Station 5: LCNRV Valuation Scanner",
+                tag: "Ch.6 • BE6.6, E6.8, E6.9",
+                desc: "Kệ kiểm định giá trị thuần LCNRV (Chọn mức thấp hơn giữa Cost và NRV)",
+                icon: "fa-tags",
+                color: "#e11d48",
+                pos: { x: 6, z: -5.6 },
+                standPos: { x: 3.6, z: -5.6 }
+            }
+        ];
+
+        const SAVE_KEY = 'merchant-warehouse-progress-v1';
+
+        function saveProgress() {
+            try {
+                localStorage.setItem(SAVE_KEY, JSON.stringify({
+                    playerCash, playerXP, totalAttempts, correctAttempts, questProgress, warehouseProgress, learning
+                }));
+            } catch {
+                show3DToast('Không lưu được tiến độ trên trình duyệt này.');
+            }
+        }
+
+        function restoreProgress() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
+                if (!saved) return;
+                const values = ['playerCash', 'playerXP', 'totalAttempts', 'correctAttempts'];
+                if (!values.every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)
+                    || saved.correctAttempts > saved.totalAttempts
+                    || !saved.questProgress
+                    || !Object.keys(questTargets).every(k => Number.isSafeInteger(saved.questProgress[k])
+                        && saved.questProgress[k] >= 0 && saved.questProgress[k] <= questTargets[k])) return;
+                playerCash = saved.playerCash;
+                playerXP = saved.playerXP;
+                totalAttempts = saved.totalAttempts;
+                correctAttempts = saved.correctAttempts;
+                questProgress = saved.questProgress;
+                restoreWarehouseProgress(saved.warehouseProgress);
+                restoreLearning(saved.learning);
+            } catch {
+                show3DToast('Không đọc được bản lưu; bắt đầu với tiến độ mặc định.');
+            }
+        }
+
+        function updatePlayerHUD() {
+            setElText('hud-xp', playerXP.toLocaleString());
+            setElText('hud-cash', '$' + playerCash.toLocaleString());
+            setElText('hud-accuracy', (totalAttempts ? Math.round(correctAttempts / totalAttempts * 100) : 0) + '%');
+        }
+
+        function setElText(id, txt) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = txt;
+        }
+
+        function setElHTML(id, html) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = html;
+        }
+
+        function show3DToast(msg) {
+            const t = document.getElementById('toast-3d');
+            setElText('toast-3d-text', msg);
+            if (!t) return;
+            t.style.opacity = '1';
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                t.style.opacity = '0';
+            }, 3200);
+        }
+
+        function toggleBeginnerGuide() {
+            beginnerMode = !beginnerMode;
+            const btn = document.getElementById('btn-beginner-mode');
+            if (btn) {
+                btn.className = beginnerMode
+                    ? "px-2.5 py-1 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-sm flex items-center gap-1"
+                    : "px-2.5 py-1 rounded-full bg-stone-200 text-stone-700 font-bold text-xs flex items-center gap-1";
+                btn.innerHTML = `<i class="fa-solid fa-graduation-cap"></i> <span class="hidden md:inline">Người Mới: ${beginnerMode ? 'BẬT' : 'TẮT'}</span>`;
+            }
+            show3DToast(beginnerMode ? "🎓 Đã BẬT chế độ hướng dẫn từng bước!" : "Đã tắt gợi ý tự động.");
+        }
+
+        function triggerQuickStepHint() {
+            if (activeStationId === 1) solveOneStepModule1();
+            else if (activeStationId === 2) hintAccountsModule2();
+            else if (activeStationId === 3) {
+                const c = M3_CASES[m3Idx];
+                if (c) show3DToast(`💡 Gợi ý: Đáp án là ${c.answer} (${c.explain})`);
+            } else if (activeStationId === 4) visualSimulateModule4();
+            else if (activeStationId === 5) autoFillModule5();
+        }
+
+        function awardPoints(points, cashDelta, isCorrect, stationNum) {
+            totalAttempts++;
+            if (isCorrect) {
+                correctAttempts++;
+                // Practice stations update accuracy and quests; mastery rewards belong to the learning path.
+                if (stationNum && questProgress[stationNum] < questTargets[stationNum]) {
+                    questProgress[stationNum]++;
+                    updateQuestBoardUI();
+                }
+                spawn3DCelebrationParticles();
+            }
+            updatePlayerHUD();
+            updateWarehouseUI();
+            saveProgress();
+        }
+
+        function updateQuestBoardUI() {
+            for (let s = 1; s <= 3; s++) {
+                setElText(`quest-prog-${s}`, `${questProgress[s]}/${questTargets[s]}`);
+                const icon = document.getElementById(`quest-icon-${s}`);
+                if (icon && questProgress[s] >= questTargets[s]) {
+                    icon.className = "w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center text-[9px]";
+                    icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                }
+            }
+            for (let s = 4; s <= 5; s++) {
+                setElText(`quest-prog-${s}`, `${questProgress[s]}/${questTargets[s]}`);
+                const bar = document.getElementById(`quest-bar-${s}`);
+                if (bar) {
+                    const pct = Math.min(100, Math.round((questProgress[s] / questTargets[s]) * 100));
+                    bar.style.width = pct + '%';
+                }
+            }
+        }
+
+        function openStationPopup(stationId) {
+            if (!stationUnlocked(stationId)) return show3DToast("Trạm này sẽ mở theo tiến trình ca học. Chọn Tiếp tục học ở bảng bên phải.");
+            if (lessonDialogOpen) closeLearning();
+            activeStationId = stationId;
+            isPopupOpen = true;
+            moveKeys = {};
+            const meta = STATIONS_META[stationId];
+
+            for (let i = 1; i <= 5; i++) {
+                const d = document.getElementById('dock-btn-' + i);
+                if (d) d.classList.toggle('active', i === stationId);
+                const v = document.getElementById('station-view-' + i);
+                if (v) v.classList.toggle('hidden', i !== stationId);
+            }
+
+            if (meta) {
+                setElText('popup-station-title', meta.title);
+                setElText('popup-station-Tag', meta.tag);
+                setElText('popup-station-desc', meta.desc);
+                const badge = document.getElementById('popup-station-badge');
+                if (badge) {
+                    badge.style.backgroundColor = meta.color;
+                    badge.innerHTML = `<i class="fa-solid ${meta.icon}"></i>`;
+                }
+            }
+
+            const modal = document.getElementById('exercise-modal-backdrop');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function closeStationPopup() {
+            isPopupOpen = false;
+            const modal = document.getElementById('exercise-modal-backdrop');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // =====================================================
+        // MODULE 1: PROFIT MEASUREMENT (Ch.5 E5.9a, E5.10a)
+        // =====================================================
+        let currentM1Case = null;
+
+        const M1_PRESETS = [
+            {
+                company: "E5.9(a): Merchandising Profit Measurement",
+                salesRevenue: 480000,
+                salesReturns: 12000,
+                salesDiscounts: 8000,
+                netSales: 460000,
+                cogs: 316000,
+                grossProfit: 144000,
+                operatingExpenses: 94000,
+                netIncome: 50000,
+                gpRate: 31.3,
+                blanks: ["netSales", "grossProfit", "netIncome"]
+            },
+            {
+                company: "E5.10(a): Missing Income Statement Amounts",
+                salesRevenue: 108000,
+                salesReturns: 5000,
+                salesDiscounts: 3000,
+                netSales: 100000,
+                cogs: 55000,
+                grossProfit: 45000,
+                operatingExpenses: 15500,
+                netIncome: 29500,
+                gpRate: 45.0,
+                blanks: ["cogs", "grossProfit", "gpRate"]
+            }
+        ];
+
+        function loadModule1Preset(idx) {
+            const p = M1_PRESETS[idx];
+            buildModule1UI(p);
+        }
+
+        function generateRandomModule1() {
+            const netSales = (Math.floor(Math.random() * 30) + 20) * 10000;
+            const returns = Math.floor(netSales * 0.03);
+            const discounts = Math.floor(netSales * 0.02);
+            const salesRev = netSales + returns + discounts;
+            const gpRate = [25, 30, 35, 40][Math.floor(Math.random() * 4)];
+            const grossProfit = Math.round((netSales * gpRate) / 100);
+            const cogs = netSales - grossProfit;
+            const opEx = Math.round(grossProfit * 0.6);
+            const netIncome = grossProfit - opEx;
+
+            buildModule1UI({
+                company: "Warehouse Audit — Monthly Income Statement",
+                salesRevenue: salesRev,
+                salesReturns: returns,
+                salesDiscounts: discounts,
+                netSales: netSales,
+                cogs: cogs,
+                grossProfit: grossProfit,
+                operatingExpenses: opEx,
+                netIncome: netIncome,
+                gpRate: gpRate,
+                blanks: ["netSales", "grossProfit", "netIncome"]
+            });
+        }
+
+        function buildModule1UI(data) {
+            currentM1Case = {
+                company: data.company,
+                rows: [
+                    { key: "salesRevenue", label: "Sales Revenue (Tổng doanh thu bán hàng)", val: data.salesRevenue, hidden: data.blanks.includes("salesRevenue"), formula: "Net Sales + Returns + Discounts" },
+                    { key: "salesReturns", label: "Less: Sales Returns and Allowances (Hàng bán bị trả lại)", val: data.salesReturns, hidden: false, formula: "" },
+                    { key: "salesDiscounts", label: "Less: Sales Discounts (Chiết khấu thanh toán)", val: data.salesDiscounts, hidden: false, formula: "" },
+                    { key: "netSales", label: "Net Sales (Doanh thu thuần)", val: data.netSales, hidden: data.blanks.includes("netSales"), highlight: true, formula: `${data.salesRevenue.toLocaleString()} − ${data.salesReturns.toLocaleString()} − ${data.salesDiscounts.toLocaleString()}` },
+                    { key: "cogs", label: "Cost of Goods Sold - COGS (Giá vốn hàng bán)", val: data.cogs, hidden: data.blanks.includes("cogs"), formula: `Net Sales (${data.netSales.toLocaleString()}) − Gross Profit (${data.grossProfit.toLocaleString()})` },
+                    { key: "grossProfit", label: "Gross Profit (Lợi nhuận gộp)", val: data.grossProfit, hidden: data.blanks.includes("grossProfit"), highlight: true, formula: `Net Sales (${data.netSales.toLocaleString()}) − COGS (${data.cogs.toLocaleString()})` },
+                    { key: "gpRate", label: "Gross Profit Rate (%) (Tỷ suất lợi nhuận gộp)", val: data.gpRate, hidden: data.blanks.includes("gpRate"), isPercent: true, formula: `(${data.grossProfit.toLocaleString()} ÷ ${data.netSales.toLocaleString()}) × 100` },
+                    { key: "operatingExpenses", label: "Operating Expenses (Chi phí hoạt động)", val: data.operatingExpenses, hidden: false, formula: "" },
+                    { key: "netIncome", label: "Net Income (Lợi nhuận ròng)", val: data.netIncome, hidden: data.blanks.includes("netIncome"), highlight: true, formula: `Gross Profit (${data.grossProfit.toLocaleString()}) − OpEx (${data.operatingExpenses.toLocaleString()})` }
+                ]
+            };
+
+            setElText('m1-company-title', data.company);
+            setElHTML('m1-feedback', '');
+            const container = document.getElementById('m1-statement-rows');
+            if (!container) return;
+
+            container.innerHTML = currentM1Case.rows.map((r, i) => {
+                const bg = r.highlight ? 'bg-[#f6efe2] font-extrabold border-l-4 border-[#e07a47]' : 'bg-[#fdfbf7]';
+                if (!r.hidden) {
+                    return `
+                        <div class="flex items-center justify-between px-3 py-2 rounded-xl ${bg}">
+                            <span class="text-stone-700">${r.label}</span>
+                            <span class="mono font-bold text-stone-800">${r.isPercent ? r.val + '%' : '€' + r.val.toLocaleString()}</span>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl ${bg} border border-amber-300">
+                        <div>
+                            <span class="text-stone-800 font-bold">${r.label} <span class="text-[#c85a28]">[ ? ]</span></span>
+                            <div class="text-[11px] text-emerald-800 font-semibold">💡 Gợi ý: <span class="mono">${r.formula}</span></div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="fillSingleM1Row(${i})" class="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-extrabold">Tính giúp</button>
+                            <input type="number" step="0.1" id="m1-input-${i}" class="w-32 beige-input rounded-xl px-2.5 py-1 mono text-right font-extrabold text-sm" placeholder="${r.isPercent ? '% Rate' : 'Amount'}">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function fillSingleM1Row(idx) {
+            if (!currentM1Case || !currentM1Case.rows[idx]) return;
+            const r = currentM1Case.rows[idx];
+            const inp = document.getElementById(`m1-input-${idx}`);
+            if (inp) {
+                inp.value = r.val;
+                inp.classList.remove('border-rose-500');
+                inp.classList.add('border-emerald-600');
+                show3DToast(`✅ Đã tính ${r.key}: ${r.formula} = ${r.val.toLocaleString()}`);
+            }
+        }
+
+        function solveOneStepModule1() {
+            if (!currentM1Case) return;
+            for (let i = 0; i < currentM1Case.rows.length; i++) {
+                const r = currentM1Case.rows[i];
+                if (r.hidden) {
+                    const inp = document.getElementById(`m1-input-${i}`);
+                    if (inp && !inp.value) {
+                        fillSingleM1Row(i);
+                        return;
+                    }
+                }
+            }
+            solveModule1();
+        }
+
+        function checkModule1() {
+            if (!currentM1Case) return;
+            let allRight = true;
+            currentM1Case.rows.forEach((r, i) => {
+                if (!r.hidden) return;
+                const inp = document.getElementById(`m1-input-${i}`);
+                if (!inp) return;
+                const userVal = parseFloat(inp.value);
+                const tol = r.isPercent ? 0.5 : 1;
+                if (isNaN(userVal) || Math.abs(userVal - r.val) > tol) {
+                    allRight = false;
+                    inp.classList.add('border-rose-500');
+                    inp.classList.remove('border-emerald-600');
+                } else {
+                    inp.classList.remove('border-rose-500');
+                    inp.classList.add('border-emerald-600');
+                }
+            });
+
+            if (allRight) {
+                setElHTML('m1-feedback', `<span class="text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i>Chính xác 100%! (+30 XP, +$400)</span>`);
+                awardPoints(30, 400, true, 1);
+                show3DToast("🎉 Hoàn thành báo cáo Lợi nhuận gộp!");
+            } else {
+                setElHTML('m1-feedback', `<span class="text-rose-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Có ô chưa khớp! Hãy bấm nút [Tính giúp] cạnh ô để xem phép tính.</span>`);
+                awardPoints(0, 0, false, 1);
+            }
+        }
+
+        function solveModule1() {
+            if (!currentM1Case) return;
+            currentM1Case.rows.forEach((r, i) => {
+                if (!r.hidden) return;
+                const inp = document.getElementById(`m1-input-${i}`);
+                if (inp) {
+                    inp.value = r.val;
+                    inp.classList.remove('border-rose-500');
+                    inp.classList.add('border-emerald-600');
+                }
+            });
+            setElHTML('m1-feedback', `<span class="text-amber-800"><i class="fa-solid fa-lightbulb mr-1"></i>Đã điền đáp án mẫu!</span>`);
+        }
+
+        // =====================================================
+        // MODULE 2: PURCHASE & SALES JOURNAL ENTRIES (Ch.5)
+        // =====================================================
+        const JOURNAL_ACCOUNTS = [
+            "Inventory",
+            "Accounts Payable",
+            "Accounts Receivable",
+            "Cash",
+            "Sales Revenue",
+            "Cost of Goods Sold",
+            "Sales Returns and Allowances",
+            "Sales Discounts",
+            "Freight-Out"
+        ];
+
+        const JOURNAL_ACCOUNT_VI = {
+            "Inventory": "Inventory (Hàng tồn kho - Tài sản)",
+            "Accounts Payable": "Accounts Payable (Phải trả người bán - Nợ)",
+            "Accounts Receivable": "Accounts Receivable (Phải thu khách hàng)",
+            "Cash": "Cash (Tiền mặt)",
+            "Sales Revenue": "Sales Revenue (Doanh thu bán hàng)",
+            "Cost of Goods Sold": "Cost of Goods Sold - COGS (Giá vốn hàng bán)",
+            "Sales Returns and Allowances": "Sales Returns & Allowances (Hàng bán bị trả lại)",
+            "Sales Discounts": "Sales Discounts (Chiết khấu bán hàng 2%)",
+            "Freight-Out": "Freight-Out (Chi phí vận chuyển hàng bán)"
+        };
+
+        const M2_QUESTIONS = [
+            {
+                type: "PURCHASE",
+                role: "BUYER VIEW (Người mua)",
+                ref: "E5.2 & E5.4(a)",
+                promptEn: "May 4: Purchased merchandise on account from PW Audio Supply for €3,800, terms 2/10, n/30, FOB shipping point.",
+                hintVi: "Mua hàng chưa trả tiền: Kho (Inventory) tăng -> Ghi Nợ (Dr) Inventory; Nợ phải trả (Accounts Payable) tăng -> Ghi Có (Cr) Accounts Payable.",
+                entries: [
+                    { side: "Dr", account: "Inventory", amount: 3800 },
+                    { side: "Cr", account: "Accounts Payable", amount: 3800 }
+                ]
+            },
+            {
+                type: "PURCHASE",
+                role: "BUYER VIEW (Người mua)",
+                ref: "E5.2 & P5.1",
+                promptEn: "May 6: Paid €150 cash for freight charges on May 4 purchase (FOB shipping point).",
+                hintVi: "FOB shipping point nghĩa là người mua chịu phí vận chuyển. Phí vận chuyển hàng mua cộng thẳng vào giá gốc hàng tồn kho (Dr Inventory / Cr Cash).",
+                entries: [
+                    { side: "Dr", account: "Inventory", amount: 150 },
+                    { side: "Cr", account: "Cash", amount: 150 }
+                ]
+            },
+            {
+                type: "PURCHASE",
+                role: "BUYER VIEW (Người mua)",
+                ref: "E5.4(a)",
+                promptEn: "May 8: Returned €300 of damaged merchandise to PW Audio Supply and received credit.",
+                hintVi: "Trả lại hàng mua bị lỗi: Giảm nợ phải trả (Dr Accounts Payable) và giảm hàng tồn kho (Cr Inventory).",
+                entries: [
+                    { side: "Dr", account: "Accounts Payable", amount: 300 },
+                    { side: "Cr", account: "Inventory", amount: 300 }
+                ]
+            },
+            {
+                type: "BOTH",
+                role: "BUYER VIEW (Thanh toán 2/10, n/30)",
+                ref: "E5.4(a) & P5.1",
+                promptEn: "May 14: Paid the balance due to PW Audio Supply within the 2% discount period (Original €3,800 less €300 return = €3,500 balance; 2% discount = €70).",
+                hintVi: "Xóa nợ 3,500 (Dr Accounts Payable 3500). Được giảm 2% = 70 làm giảm giá gốc kho (Cr Inventory 70) và chỉ phải chi tiền mặt 98% = 3,430 (Cr Cash 3430).",
+                entries: [
+                    { side: "Dr", account: "Accounts Payable", amount: 3500 },
+                    { side: "Cr", account: "Cash", amount: 3430 },
+                    { side: "Cr", account: "Inventory", amount: 70 }
+                ]
+            },
+            {
+                type: "SALES",
+                role: "SELLER VIEW (Bút toán 1: Doanh thu)",
+                ref: "BE5.3 & E5.5",
+                promptEn: "March 2 (Entry 1 - Revenue): Sold €8,000 of merchandise on account to Edgebrook Co., terms 2/10, n/30. (Cost of goods sold was €5,200). Record the SALES REVENUE entry first.",
+                hintVi: "Khi bán hàng chịu, Bút toán 1 luôn ghi nhận Doanh thu theo GIÁ BÁN (€8,000): Dr Accounts Receivable / Cr Sales Revenue.",
+                entries: [
+                    { side: "Dr", account: "Accounts Receivable", amount: 8000 },
+                    { side: "Cr", account: "Sales Revenue", amount: 8000 }
+                ]
+            },
+            {
+                type: "SALES",
+                role: "SELLER VIEW (Bút toán 2: Giá vốn)",
+                ref: "BE5.3 & E5.5",
+                promptEn: "March 2 (Entry 2 - Cost): Now record the COST OF GOODS SOLD for the March 2 sale (Selling price €8,000; Cost of merchandise sold €5,200).",
+                hintVi: "Bút toán 2 khi bán hàng luôn ghi nhận Giá vốn xuất kho theo GIÁ GỐC (€5,200): Dr Cost of Goods Sold / Cr Inventory.",
+                entries: [
+                    { side: "Dr", account: "Cost of Goods Sold", amount: 5200 },
+                    { side: "Cr", account: "Inventory", amount: 5200 }
+                ]
+            },
+            {
+                type: "SALES",
+                role: "SELLER VIEW (Khách trả hàng)",
+                ref: "BE5.3(b)",
+                promptEn: "March 6: Edgebrook returned €1,000 of merchandise purchased on March 2 (Record the revenue reduction entry).",
+                hintVi: "Khách trả lại hàng: Ghi tăng tài khoản điều chỉnh giảm doanh thu (Dr Sales Returns and Allowances) và giảm khoản phải thu của khách (Cr Accounts Receivable).",
+                entries: [
+                    { side: "Dr", account: "Sales Returns and Allowances", amount: 1000 },
+                    { side: "Cr", account: "Accounts Receivable", amount: 1000 }
+                ]
+            },
+            {
+                type: "BOTH",
+                role: "SELLER VIEW (Thu tiền chiết khấu 2/10)",
+                ref: "BE5.3(c) & P5.2(a)",
+                promptEn: "March 12: Received balance due from Edgebrook within 2% discount period (Balance = €8,000 − €1,000 = €7,000; 2% discount = €140; Cash received = €6,860).",
+                hintVi: "Thu tiền trong hạn chiết khấu: Nhận tiền mặt 98% (Dr Cash 6860), ghi nhận chiết khấu bán hàng 2% (Dr Sales Discounts 140), xóa sổ khoản phải thu 100% (Cr Accounts Receivable 7000).",
+                entries: [
+                    { side: "Dr", account: "Cash", amount: 6860 },
+                    { side: "Dr", account: "Sales Discounts", amount: 140 },
+                    { side: "Cr", account: "Accounts Receivable", amount: 7000 }
+                ]
+            }
+        ];
+
+        let m2FilteredList = [...M2_QUESTIONS];
+        let m2Idx = 0;
+
+        function filterModule2(cat) {
+            ['ALL', 'PURCHASE', 'SALES', 'BOTH'].forEach(c => {
+                const btn = document.getElementById('m2-filter-' + c);
+                if (btn) {
+                    btn.className = (c === cat)
+                        ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e07a47] text-white"
+                        : "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700";
+                }
+            });
+            m2FilteredList = cat === 'ALL' ? [...M2_QUESTIONS] : M2_QUESTIONS.filter(q => q.type === cat);
+            m2Idx = 0;
+            renderModule2Question();
+        }
+
+        function prevModule2() {
+            m2Idx = (m2Idx - 1 + m2FilteredList.length) % m2FilteredList.length;
+            renderModule2Question();
+        }
+
+        function nextModule2() {
+            m2Idx = (m2Idx + 1) % m2FilteredList.length;
+            renderModule2Question();
+        }
+
+        function renderModule2Question() {
+            const q = m2FilteredList[m2Idx];
+            if (!q) return;
+
+            setElText('m2-counter', `${m2Idx + 1} / ${m2FilteredList.length}`);
+            setElText('m2-role-badge', q.role);
+            setElText('m2-ref-badge', q.ref);
+            setElText('m2-prompt-en', q.promptEn);
+            setElText('m2-hint-vi', q.hintVi);
+            setElHTML('m2-feedback', '');
+
+            const rowsContainer = document.getElementById('m2-journal-rows');
+            if (!rowsContainer) return;
+
+            const optionsHtml = `<option value="">-- Chọn Tài Khoản (Select Account) --</option>` +
+                JOURNAL_ACCOUNTS.map(a => `<option value="${a}">${JOURNAL_ACCOUNT_VI[a] || a}</option>`).join('');
+
+            rowsContainer.innerHTML = q.entries.map((entry, i) => {
+                const isCredit = entry.side === 'Cr';
+                const badgeClass = isCredit
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300 ml-4'
+                    : 'bg-emerald-100 text-emerald-900 border border-emerald-300';
+                return `
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                        <div class="col-span-2">
+                            <span class="inline-block px-2.5 py-1 rounded-lg text-xs font-extrabold mono ${badgeClass}">
+                                ${entry.side === 'Dr' ? 'Debit (Nợ)' : 'Credit (Có)'}
+                            </span>
+                        </div>
+                        <div class="col-span-6">
+                            <select id="m2-acc-${i}" class="w-full beige-input rounded-xl px-2.5 py-1.5 text-xs font-bold">
+                                ${optionsHtml}
+                            </select>
+                        </div>
+                        <div class="col-span-4 flex items-center gap-1">
+                            <input type="number" id="m2-amt-${i}" class="w-full beige-input rounded-xl px-3 py-1.5 text-right mono text-xs font-extrabold" placeholder="Amount (€)">
+                            <button onclick="fillSingleM2Amount(${i})" class="px-2 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-extrabold" title="Điền giúp số tiền">€</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function hintAccountsModule2() {
+            const q = m2FilteredList[m2Idx];
+            if (!q) return;
+            q.entries.forEach((entry, i) => {
+                const accEl = document.getElementById(`m2-acc-${i}`);
+                if (accEl) {
+                    accEl.value = entry.account;
+                    accEl.classList.add('border-emerald-600');
+                }
+            });
+            show3DToast("💡 Đã chọn giúp các tài khoản Debit / Credit! Bạn hãy kiểm tra và điền số tiền.");
+        }
+
+        function fillSingleM2Amount(lineIdx) {
+            const q = m2FilteredList[m2Idx];
+            if (!q || !q.entries[lineIdx]) return;
+            const amtEl = document.getElementById(`m2-amt-${lineIdx}`);
+            if (amtEl) {
+                amtEl.value = q.entries[lineIdx].amount;
+                amtEl.classList.add('border-emerald-600');
+            }
+        }
+
+        function checkModule2() {
+            const q = m2FilteredList[m2Idx];
+            if (!q) return;
+            let ok = true;
+            q.entries.forEach((entry, i) => {
+                const accEl = document.getElementById(`m2-acc-${i}`);
+                const amtEl = document.getElementById(`m2-amt-${i}`);
+                if (!accEl || !amtEl) return;
+
+                const accMatch = accEl.value === entry.account;
+                const amtMatch = Math.abs(parseFloat(amtEl.value) - entry.amount) < 0.5;
+
+                accEl.classList.toggle('border-emerald-600', accMatch);
+                accEl.classList.toggle('border-rose-500', !accMatch);
+                amtEl.classList.toggle('border-emerald-600', amtMatch);
+                amtEl.classList.toggle('border-rose-500', !amtMatch);
+
+                if (!accMatch || !amtMatch) ok = false;
+            });
+
+            if (ok) {
+                setElHTML('m2-feedback', `<span class="text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i>Định khoản chính xác! (+35 XP, +$500)</span>`);
+                awardPoints(35, 500, true, 2);
+                show3DToast("🧾 Đã ghi sổ thành công nghiệp vụ Mua/Bán!");
+            } else {
+                setElHTML('m2-feedback', `<span class="text-rose-700"><i class="fa-solid fa-circle-xmark mr-1"></i>Chưa khớp! Bấm [Chọn giúp Tên Tài Khoản] nếu bạn cần hỗ trợ.</span>`);
+                awardPoints(0, 0, false, 2);
+            }
+        }
+
+        function solveModule2() {
+            const q = m2FilteredList[m2Idx];
+            if (!q) return;
+            q.entries.forEach((entry, i) => {
+                const accEl = document.getElementById(`m2-acc-${i}`);
+                const amtEl = document.getElementById(`m2-amt-${i}`);
+                if (accEl) {
+                    accEl.value = entry.account;
+                    accEl.classList.remove('border-rose-500');
+                    accEl.classList.add('border-emerald-600');
+                }
+                if (amtEl) {
+                    amtEl.value = entry.amount;
+                    amtEl.classList.remove('border-rose-500');
+                    amtEl.classList.add('border-emerald-600');
+                }
+            });
+            setElHTML('m2-feedback', `<span class="text-amber-800"><i class="fa-solid fa-lightbulb mr-1"></i>Đã điền bút toán chuẩn!</span>`);
+        }
+
+        // =====================================================
+        // MODULE 3: INVENTORY OWNERSHIP & FOB (Ch.6 BE6.1, P6.1)
+        // =====================================================
+        const M3_CASES = [
+            {
+                tag: "BE6.1(a) • Consignment Out",
+                descEn: "Goods shipped on consignment by Lazio Antiques (our company) to another company's showroom.",
+                descVi: "Hàng do công ty mình (Lazio) gửi ký gửi ở showroom công ty khác để nhờ họ bán hộ.",
+                answer: "INCLUDED",
+                explain: "Hàng mình mang đi ký gửi (Consigned out) vẫn thuộc quyền sở hữu của mình cho đến khi bán được -> INCLUDED."
+            },
+            {
+                tag: "BE6.1(b) • FOB Destination (In Transit)",
+                descEn: "Goods in transit from a supplier shipped FOB destination.",
+                descVi: "Hàng đang đi trên đường từ nhà cung cấp gửi tới kho của mình, điều khoản FOB Destination.",
+                answer: "EXCLUDED",
+                explain: "FOB Destination: Hàng chỉ chuyển quyền sở hữu khi đã giao tới tận kho người mua. Đang trên đường thì vẫn của người bán -> EXCLUDED."
+            },
+            {
+                tag: "BE6.1(c) • Sold Goods Held for Pickup",
+                descEn: "Goods sold to a customer that are being held in our warehouse waiting for customer pickup.",
+                descVi: "Hàng đã bán hoàn tất cho khách nhưng khách gửi nhờ tại kho chờ hôm sau lấy.",
+                answer: "EXCLUDED",
+                explain: "Quyền sở hữu đã chuyển sang khách hàng khi hoàn tất giao dịch bán -> EXCLUDED."
+            },
+            {
+                tag: "BE6.1(d) • Consignment In",
+                descEn: "Goods held on consignment in our store from another company.",
+                descVi: "Hàng của công ty khác gửi nhờ tại cửa hàng mình để bán hộ (Consigned in).",
+                answer: "EXCLUDED",
+                explain: "Hàng nhận bán hộ thuộc quyền sở hữu của bên gửi (Consignor), không phải tài sản kho của mình -> EXCLUDED."
+            },
+            {
+                tag: "BE6.2 & P6.1(e) • FOB Shipping Point Purchase",
+                descEn: "Goods purchased from Pelzer Corp., shipped FOB shipping point on Dec 28, still in transit on Dec 31.",
+                descVi: "Hàng công ty mình đặt mua theo điều khoản FOB Shipping Point ngày 28/12, đang trên đường vận chuyển ngày 31/12.",
+                answer: "INCLUDED",
+                explain: "FOB Shipping Point: Quyền sở hữu chuyển cho người mua (mình) ngay khi hàng lên xe -> INCLUDED."
+            },
+            {
+                tag: "BE6.2 & P6.1(f) • FOB Destination Sale",
+                descEn: "Goods sold by our company to Alvarez Co., shipped FOB destination on Dec 29, arriving Jan 2.",
+                descVi: "Hàng công ty mình bán cho khách theo điều khoản FOB Destination ngày 29/12, ngày 2/1 mới tới nơi.",
+                answer: "INCLUDED",
+                explain: "Mình là người bán theo FOB Destination: Hàng chưa tới tay khách thì ngày 31/12 vẫn thuộc kho của mình -> INCLUDED."
+            }
+        ];
+
+        let m3Idx = 0;
+
+        function prevModule3() {
+            m3Idx = (m3Idx - 1 + M3_CASES.length) % M3_CASES.length;
+            renderModule3Case();
+        }
+
+        function nextModule3() {
+            m3Idx = (m3Idx + 1) % M3_CASES.length;
+            renderModule3Case();
+        }
+
+        function renderModule3Case() {
+            const c = M3_CASES[m3Idx];
+            if (!c) return;
+            setElText('m3-tag', c.tag);
+            setElText('m3-counter', `${m3Idx + 1} / ${M3_CASES.length}`);
+            setElText('m3-desc-en', c.descEn);
+            setElText('m3-desc-vi', '🇻🇳 Dịch nghĩa: ' + c.descVi);
+            const fb = document.getElementById('m3-feedback');
+            if (fb) fb.classList.add('hidden');
+
+            const diag = document.getElementById('m3-visual-diagram');
+            if (diag) {
+                diag.innerHTML = `
+                    <div class="flex items-center gap-2 text-stone-700"><i class="fa-solid fa-industry text-lg text-stone-500"></i> Kho Người Bán</div>
+                    <div class="flex items-center gap-2 text-amber-700"><i class="fa-solid fa-truck-moving text-lg animate-pulse"></i> Đang xét quyền sở hữu (Dec 31)</div>
+                    <div class="flex items-center gap-2 text-blue-700"><i class="fa-solid fa-warehouse text-lg"></i> Kho Công Ty Mình</div>
+                `;
+            }
+        }
+
+        function submitModule3Decision(choice) {
+            const c = M3_CASES[m3Idx];
+            if (!c) return;
+            const fb = document.getElementById('m3-feedback');
+            if (!fb) return;
+            fb.classList.remove('hidden');
+
+            const isRight = choice === c.answer;
+            if (isRight) {
+                fb.className = "p-3.5 rounded-xl text-xs font-semibold bg-emerald-100 text-emerald-950 border border-emerald-400";
+                fb.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-700 mr-1"></i><b>CHÍNH XÁC (${c.answer})!</b> ${c.explain} (+25 XP, +$300)`;
+                awardPoints(25, 300, true, 3);
+                show3DToast(`📦 Đã phân loại đúng kiện hàng ${c.tag}!`);
+            } else {
+                fb.className = "p-3.5 rounded-xl text-xs font-semibold bg-rose-100 text-rose-950 border border-rose-400";
+                fb.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-700 mr-1"></i><b>CHƯA ĐÚNG!</b> Đáp án đúng là <b>${c.answer}</b>. ${c.explain}`;
+                awardPoints(0, 0, false, 3);
+            }
+        }
+
+        // =====================================================
+        // MODULE 4: FIFO & WAC COSTING (Ch.6 E6.14, E6.15, P6.5, P6.9)
+        // =====================================================
+        const M4_PROBLEMS = [
+            {
+                title: "Lin Electronics (Slide Chapter 6)",
+                subtitle: "Total Available = 100 units • Sold = 55 units • Ending Inventory = 45 units",
+                rows: [
+                    { date: "Jan. 1", type: "Beginning Inventory", units: 10, cost: 100 },
+                    { date: "Apr. 15", type: "Purchase", units: 20, cost: 110 },
+                    { date: "Aug. 24", type: "Purchase", units: 30, cost: 120 },
+                    { date: "Nov. 27", type: "Purchase", units: 40, cost: 130 }
+                ],
+                unitsSold: 55,
+                endingUnits: 45,
+                cogas: 12000,
+                fifo: { ending: 5800, cogs: 6200, explain: "FIFO: 45 units tồn cuối kỳ lấy từ lô mới nhất: (40 × $130) + (5 × $120) = $5,800. COGS = $12,000 − $5,800 = $6,200." },
+                wac: { ending: 5400, cogs: 6600, explain: "WAC: Đơn giá bình quân = $12,000 ÷ 100 = $120/unit. Ending Inventory = 45 × $120 = $5,400. COGS = 55 × $120 = $6,600." }
+            },
+            {
+                title: "E6.4 / E6.14: Zhu Boards (Snowboards)",
+                subtitle: "Total Available = 132 units • Sold = 121 units • Ending Inventory = 11 units",
+                rows: [
+                    { date: "Sept. 1", type: "Beginning Inventory", units: 23, cost: 970 },
+                    { date: "Sept. 12", type: "Purchase", units: 45, cost: 1020 },
+                    { date: "Sept. 19", type: "Purchase", units: 20, cost: 1040 },
+                    { date: "Sept. 26", type: "Purchase", units: 44, cost: 1050 }
+                ],
+                unitsSold: 121,
+                endingUnits: 11,
+                cogas: 135210,
+                fifo: { ending: 11550, cogs: 123660, explain: "FIFO: 11 units tồn cuối kỳ lấy từ lô mới nhất ngày Sept. 26: 11 × $1,050 = $11,550. COGS = $135,210 − $11,550 = $123,660." },
+                wac: { ending: 11268, cogs: 123942, explain: "WAC: Đơn giá bình quân = $135,210 ÷ 132 = $1,024.32/unit. Ending = 11 × $1,024.32 ≈ $11,268. COGS ≈ $123,942." }
+            },
+            {
+                title: "E6.6 / P6.5: Howsham Interiors",
+                subtitle: "Total Available = 1,000 units • Sold = 840 units • Ending Inventory = 160 units",
+                rows: [
+                    { date: "June 1", type: "Beginning Inventory", units: 200, cost: 5 },
+                    { date: "June 12", type: "Purchase", units: 300, cost: 6 },
+                    { date: "June 23", type: "Purchase", units: 500, cost: 7 }
+                ],
+                unitsSold: 840,
+                endingUnits: 160,
+                cogas: 6300,
+                fifo: { ending: 1120, cogs: 5180, explain: "FIFO: 160 units tồn cuối kỳ lấy từ lô June 23: 160 × $7 = $1,120. COGS = $6,300 − $1,120 = $5,180." },
+                wac: { ending: 1008, cogs: 5292, explain: "WAC: Đơn giá bình quân = $6,300 ÷ 1,000 = $6.30/unit. Ending = 160 × $6.30 = $1,008. COGS = 840 × $6.30 = $5,292." }
+            }
+        ];
+
+        let m4ProbIdx = 0;
+        let m4Method = 'FIFO';
+
+        function loadModule4Problem(idx) {
+            m4ProbIdx = idx;
+            [0, 1, 2].forEach(i => {
+                const b = document.getElementById('m4-prob-' + i);
+                if (b) {
+                    b.className = (i === idx)
+                        ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e07a47] text-white"
+                        : "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700";
+                }
+            });
+            renderModule4();
+        }
+
+        function setModule4Method(m) {
+            m4Method = m;
+            ['FIFO', 'WAC'].forEach(k => {
+                const b = document.getElementById('m4-method-' + k);
+                if (b) {
+                    b.className = (k === m)
+                        ? "px-3 py-1 rounded-lg text-xs font-extrabold bg-purple-600 text-white"
+                        : "px-3 py-1 rounded-lg text-xs font-extrabold bg-[#e6dec8] text-stone-700";
+                }
+            });
+            renderModule4();
+        }
+
+        function renderModule4() {
+            const p = M4_PROBLEMS[m4ProbIdx];
+            if (!p) return;
+
+            setElText('m4-title', p.title);
+            setElText('m4-summary-pill', p.subtitle);
+            setElText('m4-end-units-lbl', p.endingUnits);
+            setElText('m4-sold-units-lbl', p.unitsSold);
+            setElHTML('m4-feedback', '');
+
+            const tbody = document.getElementById('m4-table-body');
+            if (tbody) {
+                const totalUnits = p.rows.reduce((s, r) => s + r.units, 0);
+                tbody.innerHTML = p.rows.map(r => `
+                    <tr>
+                        <td class="py-1.5 font-semibold">${r.date}</td>
+                        <td class="py-1.5">${r.type}</td>
+                        <td class="py-1.5 text-right font-bold">${r.units}</td>
+                        <td class="py-1.5 text-right">$${r.cost.toLocaleString()}</td>
+                        <td class="py-1.5 text-right font-bold">$${(r.units * r.cost).toLocaleString()}</td>
+                    </tr>
+                `).join('') + `
+                    <tr class="bg-[#f6efe2] font-extrabold text-stone-900">
+                        <td colspan="2" class="py-1.5">Total Available for Sale (COGAS)</td>
+                        <td class="py-1.5 text-right">${totalUnits}</td>
+                        <td class="py-1.5 text-right">-</td>
+                        <td class="py-1.5 text-right text-[#c85a28]">$${p.cogas.toLocaleString()}</td>
+                    </tr>
+                `;
+            }
+
+            const guide = document.getElementById('m4-formula-guide');
+            if (guide) {
+                if (m4Method === 'FIFO') {
+                    guide.innerHTML = `<b>Mẹo giải FIFO (First-In, First-Out):</b> Hàng nhập trước đã bán trước, vậy <b>${p.endingUnits} units tồn kho cuối kỳ</b> chắc chắn nằm ở <b>dòng dưới cùng (lô mới nhất)</b>! (${p.fifo.explain})`;
+                } else {
+                    guide.innerHTML = `<b>Mẹo giải WAC (Bình quân gia quyền):</b> Lấy <b>Tổng tiền ($${p.cogas.toLocaleString()}) ÷ Tổng số lượng</b> để ra Đơn giá trung bình, sau đó nhân với ${p.endingUnits} units tồn cuối kỳ! (${p.wac.explain})`;
+                }
+            }
+
+            ['m4-input-cogas', 'm4-input-ending', 'm4-input-cogs'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = '';
+                    el.classList.remove('border-emerald-600', 'border-rose-500');
+                }
+            });
+        }
+
+        function visualSimulateModule4() {
+            solveModule4();
+            show3DToast(`📦 Đã tự động bốc thùng hàng & điền kết quả ${m4Method} từng bước!`);
+        }
+
+        function checkModule4() {
+            const p = M4_PROBLEMS[m4ProbIdx];
+            if (!p) return;
+            const target = m4Method === 'FIFO' ? p.fifo : p.wac;
+
+            const cogasEl = document.getElementById('m4-input-cogas');
+            const endEl = document.getElementById('m4-input-ending');
+            const cogsEl = document.getElementById('m4-input-cogs');
+
+            const ok1 = Math.abs((parseFloat(cogasEl.value) || 0) - p.cogas) <= 5;
+            const ok2 = Math.abs((parseFloat(endEl.value) || 0) - target.ending) <= 5;
+            const ok3 = Math.abs((parseFloat(cogsEl.value) || 0) - target.cogs) <= 5;
+
+            cogasEl.classList.toggle('border-emerald-600', ok1);
+            cogasEl.classList.toggle('border-rose-500', !ok1);
+            endEl.classList.toggle('border-emerald-600', ok2);
+            endEl.classList.toggle('border-rose-500', !ok2);
+            cogsEl.classList.toggle('border-emerald-600', ok3);
+            cogsEl.classList.toggle('border-rose-500', !ok3);
+
+            if (ok1 && ok2 && ok3) {
+                setElHTML('m4-feedback', `<span class="text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i>Tuyệt vời! ${target.explain} (+45 XP, +$650)</span>`);
+                awardPoints(45, 650, true, 4);
+                show3DToast(`📊 Đã hoàn tất tính kho ${m4Method}!`);
+            } else {
+                setElHTML('m4-feedback', `<span class="text-rose-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Chưa chính xác. Hãy bấm [Tự động bốc thùng hàng] để xem cách tính!</span>`);
+                awardPoints(0, 0, false, 4);
+            }
+        }
+
+        function solveModule4() {
+            const p = M4_PROBLEMS[m4ProbIdx];
+            if (!p) return;
+            const target = m4Method === 'FIFO' ? p.fifo : p.wac;
+            document.getElementById('m4-input-cogas').value = p.cogas;
+            document.getElementById('m4-input-ending').value = target.ending;
+            document.getElementById('m4-input-cogs').value = target.cogs;
+            setElHTML('m4-feedback', `<span class="text-amber-900"><i class="fa-solid fa-lightbulb mr-1"></i>${target.explain}</span>`);
+        }
+
+        // =====================================================
+        // MODULE 5: LCNRV VALUATION SCANNER (Ch.6 BE6.6, E6.8, E6.9)
+        // =====================================================
+        const M5_DATASETS = [
+            {
+                title: "BE6.6: Blackburn Appliance Center (By Category)",
+                items: [
+                    { name: "Cameras (Máy ảnh)", units: 1, cost: 12000, nrv: 12100 },
+                    { name: "Camcorders (Máy quay)", units: 1, cost: 9420, nrv: 9200 },
+                    { name: "Blu-ray players (Đầu đĩa)", units: 1, cost: 14000, nrv: 12800 }
+                ]
+            },
+            {
+                title: "E6.8: Kinshasa Camera Shop (Item-by-Item LCNRV)",
+                items: [
+                    { name: "Minolta Camera", units: 8, cost: 170000, nrv: 156000 },
+                    { name: "Canon Camera", units: 6, cost: 150000, nrv: 152000 },
+                    { name: "Vivitar Light Meter", units: 12, cost: 125000, nrv: 115000 },
+                    { name: "Kodak Light Meter", units: 14, cost: 115000, nrv: 135000 }
+                ]
+            },
+            {
+                title: "E6.9: Banovic Footwear (Shoes LCNRV)",
+                items: [
+                    { name: "Tennis Shoes", units: 100, cost: 68, nrv: 70 },
+                    { name: "Running Shoes", units: 150, cost: 75, nrv: 71 },
+                    { name: "Basketball Shoes", units: 125, cost: 80, nrv: 74 }
+                ]
+            }
+        ];
+
+        let m5PresetIdx = 1;
+        let m5Picked = {};
+
+        function loadModule5Preset(idx) {
+            m5PresetIdx = idx;
+            m5Picked = {};
+            [0, 1, 2].forEach(i => {
+                const b = document.getElementById('m5-btn-' + i);
+                if (b) {
+                    b.className = (i === idx)
+                        ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e07a47] text-white"
+                        : "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#e6dec8] text-stone-700";
+                }
+            });
+            renderModule5();
+        }
+
+        function renderModule5() {
+            const ds = M5_DATASETS[m5PresetIdx];
+            if (!ds) return;
+            setElText('m5-title', ds.title);
+            setElHTML('m5-feedback', '');
+            const totalInp = document.getElementById('m5-total-input');
+            if (totalInp) totalInp.value = '';
+
+            const tbody = document.getElementById('m5-tbody');
+            if (!tbody) return;
+
+            tbody.innerHTML = ds.items.map((item, i) => {
+                const pickedType = m5Picked[i];
+                const chosenRate = pickedType === 'COST' ? item.cost : (pickedType === 'NRV' ? item.nrv : null);
+                const rowVal = chosenRate !== null ? (item.units * chosenRate) : '';
+
+                return `
+                    <tr class="hover:bg-[#fdfbf7]">
+                        <td class="py-2 px-2.5 font-bold text-stone-800">${item.name}</td>
+                        <td class="py-2 px-2.5 text-right mono font-bold">${item.units}</td>
+                        <td class="py-2 px-2.5 text-center">
+                            <button onclick="pickModule5Rate(${i}, 'COST')" class="px-3 py-1 rounded-xl mono font-bold border transition ${pickedType === 'COST' ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm' : 'bg-white text-stone-800 border-[#cbbba4] hover:border-[#e07a47]'}">
+                                ${item.cost.toLocaleString()}
+                            </button>
+                        </td>
+                        <td class="py-2 px-2.5 text-center">
+                            <button onclick="pickModule5Rate(${i}, 'NRV')" class="px-3 py-1 rounded-xl mono font-bold border transition ${pickedType === 'NRV' ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm' : 'bg-white text-stone-800 border-[#cbbba4] hover:border-[#e07a47]'}">
+                                ${item.nrv.toLocaleString()}
+                            </button>
+                        </td>
+                        <td class="py-2 px-2.5 text-right">
+                            <input type="number" id="m5-row-val-${i}" value="${rowVal}" class="w-28 beige-input rounded-lg px-2 py-1 mono text-right text-xs font-bold" placeholder="SL × Min">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function pickModule5Rate(rowIdx, type) {
+            m5Picked[rowIdx] = type;
+            renderModule5();
+            const ds = M5_DATASETS[m5PresetIdx];
+            let sum = 0;
+            ds.items.forEach((_, i) => {
+                const el = document.getElementById(`m5-row-val-${i}`);
+                if (el && el.value) sum += parseFloat(el.value) || 0;
+            });
+            const totalInp = document.getElementById('m5-total-input');
+            if (totalInp && sum > 0) totalInp.value = sum;
+        }
+
+        function checkModule5() {
+            const ds = M5_DATASETS[m5PresetIdx];
+            if (!ds) return;
+            let expectedTotal = 0;
+            let allCorrect = true;
+
+            ds.items.forEach((item, i) => {
+                const lower = Math.min(item.cost, item.nrv);
+                const expectedRow = item.units * lower;
+                expectedTotal += expectedRow;
+
+                const rowInp = document.getElementById(`m5-row-val-${i}`);
+                const userRow = parseFloat(rowInp?.value) || 0;
+                if (Math.abs(userRow - expectedRow) > 0.5) {
+                    allCorrect = false;
+                    rowInp?.classList.add('border-rose-500');
+                } else {
+                    rowInp?.classList.remove('border-rose-500');
+                    rowInp?.classList.add('border-emerald-600');
+                }
+            });
+
+            const totalInp = document.getElementById('m5-total-input');
+            const userTotal = parseFloat(totalInp?.value) || 0;
+            if (Math.abs(userTotal - expectedTotal) > 0.5) {
+                allCorrect = false;
+                totalInp?.classList.add('border-rose-500');
+            } else {
+                totalInp?.classList.remove('border-rose-500');
+                totalInp?.classList.add('border-emerald-600');
+            }
+
+            if (allCorrect) {
+                setElHTML('m5-feedback', `<span class="text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i>Định giá LCNRV chuẩn xác! Tổng kho = ${expectedTotal.toLocaleString()} (+35 XP, +$500)</span>`);
+                awardPoints(35, 500, true, 5);
+                show3DToast("🏷️ Đã quét xong định giá LCNRV!");
+            } else {
+                setElHTML('m5-feedback', `<span class="text-rose-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Hãy bấm chọn mức giá THẤP HƠN giữa Cost và NRV trên mỗi dòng!</span>`);
+                awardPoints(0, 0, false, 5);
+            }
+        }
+
+        function autoFillModule5() {
+            const ds = M5_DATASETS[m5PresetIdx];
+            if (!ds) return;
+            let total = 0;
+            ds.items.forEach((item, i) => {
+                m5Picked[i] = item.cost <= item.nrv ? 'COST' : 'NRV';
+                total += item.units * Math.min(item.cost, item.nrv);
+            });
+            renderModule5();
+            const totalInp = document.getElementById('m5-total-input');
+            if (totalInp) totalInp.value = total;
+            setElHTML('m5-feedback', `<span class="text-amber-800"><i class="fa-solid fa-lightbulb mr-1"></i>Đã chọn tự động mức giá thấp hơn cho từng mặt hàng!</span>`);
+        }
+
+        // =====================================================
+        // CALCULATOR & CHEATSHEET
+        // =====================================================
+        let calcExpr = "";
+
+        function toggleCalculator() {
+            const el = document.getElementById('calc-modal');
+            if (el) el.classList.toggle('hidden');
+        }
+
+        function toggleCheatSheet() {
+            const el = document.getElementById('cheatsheet-modal');
+            if (!el) return;
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+            } else {
+                el.classList.add('hidden');
+                el.classList.remove('flex');
+            }
+        }
+
+        function calcInput(ch) {
+            calcExpr += ch;
+            document.getElementById('calc-screen').value = calcExpr;
+        }
+
+        function calcClear() {
+            calcExpr = "";
+            document.getElementById('calc-screen').value = "0";
+        }
+
+        function calcEval() {
+            try {
+                const res = Function('"use strict";return (' + (calcExpr || '0') + ')')();
+                calcExpr = String(Math.round(res * 100) / 100);
+                document.getElementById('calc-screen').value = calcExpr;
+            } catch (e) {
+                document.getElementById('calc-screen').value = "Error";
+                calcExpr = "";
+            }
+        }
+
+        function calcQuickDiscount(mult) {
+            calcEval();
+            const cur = parseFloat(document.getElementById('calc-screen').value) || 0;
+            const res = Math.round(cur * mult * 100) / 100;
+            calcExpr = String(res);
+            document.getElementById('calc-screen').value = calcExpr;
+        }
+
+        // =====================================================
+        // 3D INDUSTRIAL WAREHOUSE ENGINE MATCHING PHOTO (Three.js r128)
+        // =====================================================
+        let scene, camera, renderer;
+        let playerGroup, playerTargetPos;
+        let pendingStationToOpen = null;
+        let moveKeys = {};
+        let floorPlaneMesh;
+        let raycaster = new THREE.Raycaster();
+        let mouseNDC = new THREE.Vector2();
+        let celebrationParticles = [];
+        let npcCustomers = [];
+        let colliderBoxes = [];
+        let colliderHelperMeshes = [];
+        let bumpRingMesh = null;
+        let bumpRingTimer = 0;
+
+        let isoZoom = 1.0;
+        const isoFrustumSize = 22;
+        const isoCameraOffset = new THREE.Vector3(14, 23, 16);
+        const isoLookTarget = new THREE.Vector3(0, 1.0, 0.5);
+
+        function addColliderBox(minX, maxX, minZ, maxZ, label) {
+            colliderBoxes.push({ minX, maxX, minZ, maxZ, label });
+            if (scene) {
+                const w = maxX - minX;
+                const d = maxZ - minZ;
+                const cx = (minX + maxX) / 2;
+                const cz = (minZ + maxZ) / 2;
+                const wireGeo = new THREE.BoxGeometry(w, 1.6, d);
+                const wireMat = new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true, transparent: true, opacity: 0.65 });
+                const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+                wireMesh.position.set(cx, 1.0, cz);
+                wireMesh.visible = showColliders;
+                scene.add(wireMesh);
+                colliderHelperMeshes.push(wireMesh);
+            }
+        }
+
+        function toggleColliderDebug() {
+            showColliders = !showColliders;
+            colliderHelperMeshes.forEach(m => { m.visible = showColliders; });
+            show3DToast(showColliders ? "🧱 Đã HIỆN khung va chạm vật lý (Wireframe Đỏ)" : "Đã ẩn khung va chạm vật lý");
+        }
+
+        function checkCircleAABBCollision(px, pz, radius) {
+            if (px < -9.3 || px > 9.3 || pz < -8.0 || pz > 9.0) return true;
+            for (let i = 0; i < colliderBoxes.length; i++) {
+                const b = colliderBoxes[i];
+                const closestX = Math.max(b.minX, Math.min(px, b.maxX));
+                const closestZ = Math.max(b.minZ, Math.min(pz, b.maxZ));
+                const dx = px - closestX;
+                const dz = pz - closestZ;
+                if ((dx * dx + dz * dz) < (radius * radius)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function triggerCollisionBump(x, z) {
+            if (!bumpRingMesh) return;
+            bumpRingMesh.position.set(x, 0.25, z);
+            bumpRingMesh.visible = true;
+            bumpRingTimer = 15;
+        }
+
+        function initIsometric3DWorld() {
+            const container = document.getElementById('canvas-3d-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xd5dade);
+
+            const aspect = window.innerWidth / window.innerHeight;
+            camera = new THREE.OrthographicCamera(
+                (-isoFrustumSize * aspect) / 2,
+                (isoFrustumSize * aspect) / 2,
+                isoFrustumSize / 2,
+                -isoFrustumSize / 2,
+                -50,
+                120
+            );
+            camera.position.copy(isoLookTarget).add(isoCameraOffset);
+            camera.lookAt(isoLookTarget);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Warm Daylighting + Clerestory Light
+            const ambient = new THREE.AmbientLight(0xfff9ee, 0.78);
+            scene.add(ambient);
+
+            const sunLight = new THREE.DirectionalLight(0xfff4dc, 0.72);
+            sunLight.position.set(14, 24, 12);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.left = -16;
+            sunLight.shadow.camera.right = 16;
+            sunLight.shadow.camera.top = 16;
+            sunLight.shadow.camera.bottom = -16;
+            scene.add(sunLight);
+
+            buildIndustrialWarehouseMatchingPhoto();
+            buildStandUpReachTruckPlayer();
+            buildShopNPCs();
+            initWarehouseProgression();
+            initLearning();
+            createFloatingStationBubbles();
+            setupIsoInteractions();
+
+            window.addEventListener('resize', onIsoResize);
+            animateIsoLoop();
+        }
+
+        function buildIndustrialWarehouseMatchingPhoto() {
+            colliderBoxes = [];
+            colliderHelperMeshes = [];
+
+            // 1. Polished Industrial Concrete Floor (NO OUTER WALLS on +X or +Z for unobstructed view)
+            const concreteGeo = new THREE.BoxGeometry(20.5, 0.4, 19.5);
+            const concreteMat = new THREE.MeshStandardMaterial({ color: 0x858b8e, roughness: 0.9 });
+            floorPlaneMesh = new THREE.Mesh(concreteGeo, concreteMat);
+            floorPlaneMesh.position.set(0, 0, 0.5);
+            floorPlaneMesh.receiveShadow = true;
+            scene.add(floorPlaneMesh);
+
+            // Subtle expansion joints on concrete floor
+            const jointMat = new THREE.MeshBasicMaterial({ color: 0x73797c });
+            for (let x = -8; x <= 8; x += 4) {
+                const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.01, 19.2), jointMat);
+                line.position.set(x, 0.21, 0.5);
+                scene.add(line);
+            }
+            for (let z = -8; z <= 9; z += 4) {
+                const line = new THREE.Mesh(new THREE.BoxGeometry(20.2, 0.01, 0.04), jointMat);
+                line.position.set(0, 0.21, z);
+                scene.add(line);
+            }
+
+            // 2. ONLY TWO BACK WALLS (-Z and -X) WITH CLERESTORY DAYLIGHT WINDOW (Outer 2 walls removed!)
+            const lowerWallMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.8 });
+            const upperCladdingMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.6 });
+            const windowGlowMat = new THREE.MeshBasicMaterial({ color: 0xfef9e7 });
+
+            // Back-Left Wall (-Z)
+            const backLower = new THREE.Mesh(new THREE.BoxGeometry(20.5, 2.2, 0.35), lowerWallMat);
+            backLower.position.set(0, 1.3, -9.1);
+            backLower.receiveShadow = true;
+            scene.add(backLower);
+
+            const backWindow = new THREE.Mesh(new THREE.BoxGeometry(18.5, 1.3, 0.28), windowGlowMat);
+            backWindow.position.set(0, 3.05, -9.1);
+            scene.add(backWindow);
+
+            const backUpper = new THREE.Mesh(new THREE.BoxGeometry(20.5, 2.2, 0.35), upperCladdingMat);
+            backUpper.position.set(0, 4.8, -9.1);
+            scene.add(backUpper);
+
+            // Back-Right Wall (-X)
+            const leftLower = new THREE.Mesh(new THREE.BoxGeometry(0.35, 2.2, 19.5), lowerWallMat);
+            leftLower.position.set(-10.1, 1.3, 0.5);
+            leftLower.receiveShadow = true;
+            scene.add(leftLower);
+
+            const leftWindow = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.3, 17.5), windowGlowMat);
+            leftWindow.position.set(-10.1, 3.05, 0.5);
+            scene.add(leftWindow);
+
+            const leftUpper = new THREE.Mesh(new THREE.BoxGeometry(0.35, 2.2, 19.5), upperCladdingMat);
+            leftUpper.position.set(-10.1, 4.8, 0.5);
+            scene.add(leftUpper);
+
+            // 3. HIGH-BAY BLUE UPRIGHTS & ORANGE BEAMS PALLET RACKING (Right/Back side like photo)
+            buildHighBayRackRow(-6, -5.6, 4.4, "FIFO/WAC Main Rack");
+            buildHighBayRackRow(6, -5.6, 4.4, "LCNRV & Reserve Rack");
+
+            // 4. STRUCTURAL COLUMNS WITH WHITE CYLINDRICAL BASE CASINGS + RED FIRE EXTINGUISHERS
+            buildWarehouseColumn(-9, -7.5);
+            buildWarehouseColumn(9, -7.5);
+
+            // 5. YELLOW FLOOR-TAPED STAGING ZONES WITH STACKED CARDBOARD CARTONS
+            buildYellowStagingZone(-6, 7, 2.4, 2.0, 6); // Station 3 FOB Staging
+            buildYellowStagingZone(-6, 3.8, 2.4, 2.0, 6); // Station 2 Purchase/Sales Staging
+            buildYellowStagingZone(-6, 0, 2.4, 2.0, 6);  // Station 1 Audit Desk Zone
+
+            // Keep the central forklift aisle clear; markings never add obstacles.
+            const trafficMat = new THREE.MeshBasicMaterial({ color: 0xf2c94c });
+            [-2, 2].forEach(x => {
+                const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.015, 16.5), trafficMat);
+                stripe.position.set(x, 0.225, 0.5);
+                scene.add(stripe);
+            });
+            for (let z = -6; z <= 8; z += 2) {
+                const dash = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.015, 0.65), trafficMat);
+                dash.position.set(0, 0.225, z);
+                scene.add(dash);
+            }
+            buildWarehouseSign('01  KIEM TOAN', -6, 0, 1.8);
+            buildWarehouseSign('02  CHUNG TU', -6, 3.8, 1.8);
+            buildWarehouseSign('03  TIEP NHAN', -6, 7, 1.8);
+            buildWarehouseSign('04  FIFO / WAC', -6, -5.6, 3.5);
+            buildWarehouseSign('05  KIEM DINH', 6, -5.6, 3.5);
+
+            [
+                { x: 0.95, z: 7.8, color: 0x377d98 },
+                { x: 0.95, z: -6.5, color: 0x5b8965 },
+                { x: 4.2, z: 7.8, color: 0xb17b36 }
+            ].forEach(zone => {
+                const pad = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 2.1),
+                    new THREE.MeshBasicMaterial({ color: zone.color }));
+                pad.rotation.x = -Math.PI / 2;
+                pad.position.set(zone.x, 0.222, zone.z);
+                scene.add(pad);
+            });
+
+            // 6. COLLISION BUMP RING INDICATOR
+            const ringGeo = new THREE.RingGeometry(0.55, 0.78, 24);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
+            bumpRingMesh = new THREE.Mesh(ringGeo, ringMat);
+            bumpRingMesh.rotation.x = -Math.PI / 2;
+            bumpRingMesh.visible = false;
+            scene.add(bumpRingMesh);
+        }
+
+        function buildWarehouseSign(text, x, z, y) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 96;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#263746';
+            ctx.fillRect(0, 0, 512, 96);
+            ctx.fillStyle = '#f2c94c';
+            ctx.fillRect(0, 0, 12, 96);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 34px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 262, 48);
+            const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+            sign.position.set(x, y, z);
+            sign.scale.set(3.3, 0.62, 1);
+            scene.add(sign);
+        }
+
+        function buildHighBayRackRow(centerX, centerZ, totalLengthZ, label) {
+            const rackGroup = new THREE.Group();
+            const blueMat = new THREE.MeshStandardMaterial({ color: 0x24517a, roughness: 0.65 });
+            const orangeMat = new THREE.MeshStandardMaterial({ color: 0xe47527, roughness: 0.65 });
+            const boxColors = [0xc89d66, 0xba8c52, 0xd4aa72, 0xb08248];
+            const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+            const rackWidth = 1.65;
+            const rackHeight = 2.9;
+            const numBays = 4;
+            const bayLen = totalLengthZ / numBays;
+            const startZ = centerZ - totalLengthZ / 2;
+
+            // Blue Upright Frames & Diagonal Bracing
+            for (let b = 0; b <= numBays; b++) {
+                const zPos = startZ + b * bayLen;
+                [-rackWidth / 2, rackWidth / 2].forEach(xOff => {
+                    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, rackHeight, 0.12), blueMat);
+                    post.position.set(centerX + xOff, rackHeight / 2 + 0.2, zPos);
+                    post.castShadow = true;
+                    rackGroup.add(post);
+                });
+                for (let lv = 1; lv <= 2; lv++) {
+                    const brace = new THREE.Mesh(new THREE.BoxGeometry(rackWidth, 0.06, 0.06), blueMat);
+                    brace.position.set(centerX, lv * 1.25, zPos);
+                    rackGroup.add(brace);
+                }
+            }
+
+            // 4 Levels of Orange Horizontal Beams + Stacked Cardboard Pallets
+            const levelsY = [0.65, 1.85];
+            levelsY.forEach((ly, lvIdx) => {
+                [-rackWidth / 2 + 0.06, rackWidth / 2 - 0.06].forEach(xOff => {
+                    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, totalLengthZ), orangeMat);
+                    beam.position.set(centerX + xOff, ly, centerZ);
+                    rackGroup.add(beam);
+                });
+
+                for (let b = 0; b < numBays; b++) {
+                    const bayCenterZ = startZ + (b + 0.5) * bayLen;
+                    [-0.45, 0.45].forEach((pOff, pIdx) => {
+                        const pz = bayCenterZ + pOff;
+                        const boxW = 0.82;
+                        const boxH = 0.72 + ((b + lvIdx + pIdx) % 2) * 0.18;
+                        const boxD = 0.85;
+                        const cMat = new THREE.MeshStandardMaterial({
+                            color: boxColors[(b + lvIdx + pIdx) % boxColors.length],
+                            roughness: 0.8
+                        });
+                        const carton = new THREE.Mesh(new THREE.BoxGeometry(boxW, boxH, boxD), cMat);
+                        carton.position.set(centerX, ly + 0.08 + boxH / 2, pz);
+                        carton.castShadow = true;
+                        rackGroup.add(carton);
+
+                        const sticker = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.32), labelMat);
+                        sticker.position.set(centerX - boxW / 2 - 0.01, ly + 0.12 + boxH / 2, pz);
+                        rackGroup.add(sticker);
+                    });
+                }
+            });
+
+            scene.add(rackGroup);
+            addColliderBox(
+                centerX - rackWidth / 2 - 0.15,
+                centerX + rackWidth / 2 + 0.15,
+                centerZ - totalLengthZ / 2 - 0.15,
+                centerZ + totalLengthZ / 2 + 0.15,
+                label
+            );
+        }
+
+        function buildWarehouseColumn(x, z) {
+            const colGroup = new THREE.Group();
+            const casing = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.38, 0.40, 2.3, 18),
+                new THREE.MeshStandardMaterial({ color: 0xf7f5f0, roughness: 0.5 })
+            );
+            casing.position.set(x, 1.35, z);
+            casing.castShadow = true;
+            colGroup.add(casing);
+
+            const steelShaft = new THREE.Mesh(
+                new THREE.BoxGeometry(0.32, 3.8, 0.32),
+                new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.5 })
+            );
+            steelShaft.position.set(x, 4.1, z);
+            colGroup.add(steelShaft);
+
+            const extTank = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.1, 0.1, 0.45, 12),
+                new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 })
+            );
+            extTank.position.set(x - 0.38, 1.1, z + 0.15);
+            colGroup.add(extTank);
+
+            scene.add(colGroup);
+            addColliderBox(x - 0.48, x + 0.48, z - 0.48, z + 0.48, "Support Column");
+        }
+
+        function buildYellowStagingZone(cx, cz, width, depth, boxCount) {
+            const zoneGroup = new THREE.Group();
+            const yellowMat = new THREE.MeshBasicMaterial({ color: 0xeab308 });
+            const lineT = 0.07;
+
+            const topB = new THREE.Mesh(new THREE.BoxGeometry(width, 0.02, lineT), yellowMat);
+            topB.position.set(cx, 0.21, cz - depth / 2);
+            zoneGroup.add(topB);
+
+            const botB = new THREE.Mesh(new THREE.BoxGeometry(width, 0.02, lineT), yellowMat);
+            botB.position.set(cx, 0.21, cz + depth / 2);
+            zoneGroup.add(botB);
+
+            const leftB = new THREE.Mesh(new THREE.BoxGeometry(lineT, 0.02, depth), yellowMat);
+            leftB.position.set(cx - width / 2, 0.21, cz);
+            zoneGroup.add(leftB);
+
+            const rightB = new THREE.Mesh(new THREE.BoxGeometry(lineT, 0.02, depth), yellowMat);
+            rightB.position.set(cx + width / 2, 0.21, cz);
+            zoneGroup.add(rightB);
+
+            const cartonColors = [0xc99e67, 0xb88b52, 0xd4aa73];
+            const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+            const cols = 3;
+            const rows = 2;
+            let idx = 0;
+            for (let gx = 0; gx < cols; gx++) {
+                for (let gz = 0; gz < rows; gz++) {
+                    const stackHeight = 1;
+                    for (let h = 0; h < stackHeight; h++) {
+                        if (idx >= boxCount) break;
+                        const bw = 0.62;
+                        const bh = 0.48;
+                        const bd = 0.62;
+                        const bx = cx + (gx - 1) * 0.7;
+                        const bz = cz + (gz - 0.5) * 0.7;
+                        const by = 0.2 + bh / 2 + h * bh;
+
+                        const box = new THREE.Mesh(
+                            new THREE.BoxGeometry(bw, bh, bd),
+                            new THREE.MeshStandardMaterial({ color: cartonColors[(gx + gz + h) % cartonColors.length], roughness: 0.8 })
+                        );
+                        box.position.set(bx, by, bz);
+                        box.castShadow = true;
+                        zoneGroup.add(box);
+
+                        const tag = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.02), labelMat);
+                        tag.position.set(bx, by, bz + bd / 2 + 0.01);
+                        zoneGroup.add(tag);
+                        idx++;
+                    }
+                }
+            }
+
+            scene.add(zoneGroup);
+            addColliderBox(cx - width / 2 + 0.15, cx + width / 2 - 0.15, cz - depth / 2 + 0.15, cz + depth / 2 - 0.15, "Floor Carton Stack");
+        }
+
+        function buildStandUpReachTruckPlayer() {
+            playerGroup = new THREE.Group();
+            playerGroup.position.set(0.6, 0.2, 4.2);
+            playerTargetPos = playerGroup.position.clone();
+
+            const whiteBodyMat = new THREE.MeshStandardMaterial({ color: 0xeebc32, roughness: 0.4 });
+            const darkChassisMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.6 });
+            const mastMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.4 });
+
+            const skirt = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.28, 1.35), darkChassisMat);
+            skirt.position.set(0, 0.14, 0);
+            skirt.castShadow = true;
+            playerGroup.add(skirt);
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.78, 0.85), whiteBodyMat);
+            body.position.set(0, 0.65, -0.2);
+            body.castShadow = true;
+            playerGroup.add(body);
+
+            [-0.42, 0.42].forEach(xOff => {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.25, 0.07), mastMat);
+                post.position.set(xOff, 1.45, -0.52);
+                playerGroup.add(post);
+            });
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.07, 0.85), mastMat);
+            roof.position.set(0, 2.08, -0.2);
+            playerGroup.add(roof);
+
+            const beacon = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.08, 0.08, 0.12, 10),
+                new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+            );
+            beacon.position.set(0, 2.16, -0.2);
+            playerGroup.add(beacon);
+
+            [-0.28, 0.28].forEach(xOff => {
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.55, 0.11), mastMat);
+                rail.position.set(xOff, 1.35, 0.48);
+                rail.castShadow = true;
+                playerGroup.add(rail);
+            });
+
+            [-0.26, 0.26].forEach(fx => {
+                const fork = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.05, 0.88), mastMat);
+                fork.position.set(fx, 0.16, 0.92);
+                playerGroup.add(fork);
+            });
+
+            // Operator standing inside
+            const legs = new THREE.Mesh(
+                new THREE.BoxGeometry(0.32, 0.55, 0.24),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 })
+            );
+            legs.position.set(0, 0.55, -0.05);
+            playerGroup.add(legs);
+
+            const torso = new THREE.Mesh(
+                new THREE.BoxGeometry(0.38, 0.52, 0.26),
+                new THREE.MeshStandardMaterial({ color: 0xdbeafe, roughness: 0.6 })
+            );
+            torso.position.set(0, 1.08, -0.05);
+            playerGroup.add(torso);
+
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.18, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0xf5cba7, roughness: 0.6 })
+            );
+            head.position.set(0, 1.48, -0.05);
+            playerGroup.add(head);
+
+            scene.add(playerGroup);
+        }
+
+        function buildShopNPCs() {
+            npcCustomers = [];
+            const workerConfigs = [
+                { x: -7.8, z: 4.5, shirt: 0x1e3a8a, rot: 0.6 },
+                { x: -7.8, z: -0.5, shirt: 0x991b1b, rot: 1.4 },
+                { x: 7.8, z: -4.2, shirt: 0x065f46, rot: -0.8 }
+            ];
+            workerConfigs.forEach(cfg => {
+                const npc = new THREE.Group();
+                const body = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.24, 0.26, 0.75, 10),
+                    new THREE.MeshStandardMaterial({ color: cfg.shirt, roughness: 0.7 })
+                );
+                body.position.y = 0.65;
+                body.castShadow = true;
+                npc.add(body);
+
+                const head = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.21, 10, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xf5cba7, roughness: 0.6 })
+                );
+                head.position.y = 1.22;
+                npc.add(head);
+
+                npc.position.set(cfg.x, 0.2, cfg.z);
+                npc.rotation.y = cfg.rot;
+                scene.add(npc);
+                npcCustomers.push(npc);
+            });
+        }
+
+        function createFloatingStationBubbles() {
+            const container = document.getElementById('labels-3d-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            STATIONS_META.slice(1).forEach(st => {
+                const bubble = document.createElement('div');
+                bubble.id = `station-bubble-${st.id}`;
+                bubble.className = 'cozy-bubble-3d flex items-center gap-2 text-xs font-extrabold';
+                bubble.innerHTML = `
+                    <span class="w-5 h-5 rounded-lg flex items-center justify-center text-white text-[11px]" style="background:${st.color}">
+                        <i class="fa-solid ${st.icon}"></i>
+                    </span>
+                    <span class="text-stone-800">${st.title.split(':')[0]}:</span>
+                    <span class="text-[#c85a28]">${st.title.split(':')[1] || ''}</span>
+                `;
+                bubble.onclick = (e) => {
+                    e.stopPropagation();
+                    walkToAndOpenStation(st.id);
+                };
+                container.appendChild(bubble);
+            });
+        }
+
+        function updateFloatingBubblesPosition() {
+            if (!camera) return;
+            STATIONS_META.slice(1).forEach(st => {
+                const bubble = document.getElementById(`station-bubble-${st.id}`);
+                if (!bubble) return;
+                const worldVec = new THREE.Vector3(st.pos.x, 2.6, st.pos.z);
+                worldVec.project(camera);
+                const x = (worldVec.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-(worldVec.y * 0.5) + 0.5) * window.innerHeight;
+                bubble.style.left = `${x}px`;
+                bubble.style.top = `${y}px`;
+            });
+        }
+
+        function walkToAndOpenStation(stationId) {
+            const st = STATIONS_META[stationId];
+            if (!st) return;
+            activeStationId = stationId;
+
+            for (let i = 1; i <= 5; i++) {
+                const d = document.getElementById('dock-btn-' + i);
+                if (d) d.classList.toggle('active', i === stationId);
+            }
+
+            openStationPopup(stationId);
+        }
+
+        function spawn3DCelebrationParticles() {
+            if (!scene || !playerGroup) return;
+            const colors = [0x10b981, 0xf59e0b, 0x3b82f6, 0xe11d48];
+            for (let i = 0; i < 16; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.18, 0.18, 0.18),
+                    new THREE.MeshBasicMaterial({ color: colors[i % colors.length] })
+                );
+                p.position.set(
+                    playerGroup.position.x + (Math.random() - 0.5) * 1.2,
+                    playerGroup.position.y + 1.8,
+                    playerGroup.position.z + (Math.random() - 0.5) * 1.2
+                );
+                p.userData = {
+                    vel: new THREE.Vector3((Math.random() - 0.5) * 0.14, Math.random() * 0.16 + 0.08, (Math.random() - 0.5) * 0.14),
+                    life: 45
+                };
+                scene.add(p);
+                celebrationParticles.push(p);
+            }
+        }
+
+        function resetIsoCamera() {
+            isoZoom = 1.0;
+            isoLookTarget.set(0, 1.0, 0.5);
+            onIsoResize();
+            camera.position.copy(isoLookTarget).add(isoCameraOffset);
+            camera.lookAt(isoLookTarget);
+            show3DToast("🧭 Đã căn chuẩn góc nhìn chéo Isometric!");
+        }
+
+        function setupIsoInteractions() {
+            const dom = renderer.domElement;
+
+            dom.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0 || isPopupOpen) return;
+                const rect = dom.getBoundingClientRect();
+                mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouseNDC, camera);
+                if (floorPlaneMesh) {
+                    const hits = raycaster.intersectObject(floorPlaneMesh);
+                    if (hits.length > 0) {
+                        const pt = hits[0].point;
+                        playerTargetPos.set(
+                            Math.max(-9.0, Math.min(9.0, pt.x)),
+                            0.2,
+                            Math.max(-7.8, Math.min(8.8, pt.z))
+                        );
+                        pendingStationToOpen = null;
+                    }
+                }
+            });
+
+            dom.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                isoZoom = Math.max(0.65, Math.min(1.65, isoZoom - e.deltaY * 0.0008));
+                onIsoResize();
+            }, { passive: false });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Escape' && lessonDialogOpen) {
+                    closeLearning();
+                    return;
+                }
+                if (e.code === 'Escape' && isPopupOpen) {
+                    closeStationPopup();
+                    return;
+                }
+                const tag = document.activeElement ? document.activeElement.tagName : '';
+                if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) return;
+
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+                if (isPopupOpen) return;
+                if (e.code === 'KeyE' && !e.repeat) interactCargo();
+                moveKeys[e.code] = true;
+
+                if (e.code === 'Space' && !isPopupOpen) {
+                    e.preventDefault();
+                    openStationPopup(activeStationId || 1);
+                }
+            });
+
+            window.addEventListener('blur', () => { moveKeys = {}; });
+            document.addEventListener('visibilitychange', () => { moveKeys = {}; });
+
+            window.addEventListener('keyup', (e) => {
+                moveKeys[e.code] = false;
+            });
+        }
+
+        function onIsoResize() {
+            if (!camera || !renderer) return;
+            const aspect = window.innerWidth / window.innerHeight;
+            const f = isoFrustumSize / isoZoom;
+            camera.left = (-f * aspect) / 2;
+            camera.right = (f * aspect) / 2;
+            camera.top = f / 2;
+            camera.bottom = -f / 2;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let previousFrameTime = performance.now();
+
+        function animateIsoLoop() {
+            requestAnimationFrame(animateIsoLoop);
+            if (!scene || !camera || !renderer) return;
+
+            const now = performance.now();
+            const frameScale = Math.min((now - previousFrameTime) / (1000 / 60), 2);
+            previousFrameTime = now;
+            const time = now * 0.001;
+
+            // Clock
+            if (!isPopupOpen) {
+                gameMinutes += 0.03 * frameScale;
+                if (gameMinutes >= 1080) gameMinutes = 480;
+                const hrs = Math.floor(gameMinutes / 60);
+                const mins = Math.floor(gameMinutes % 60);
+                setElText('hud-clock-text', `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`);
+                setElText('hud-day-text', hrs < 12 ? 'Ngày 1 - Sáng' : 'Ngày 1 - Chiều');
+            }
+
+            // Reach Truck Movement + AABB Collision
+            if (playerGroup && !isPopupOpen) {
+                const spd = 0.11 * (warehouseProgress.truck ? 1.3 : 1) * (warehouseProgress.carrying ? 0.8 : 1) * frameScale;
+                let manualMove = false;
+                let moveDX = 0;
+                let moveDZ = 0;
+
+                if (moveKeys['KeyW'] || moveKeys['ArrowUp']) { moveDZ -= spd; manualMove = true; }
+                if (moveKeys['KeyS'] || moveKeys['ArrowDown']) { moveDZ += spd; manualMove = true; }
+                if (moveKeys['KeyA'] || moveKeys['ArrowLeft']) { moveDX -= spd; manualMove = true; }
+                if (moveKeys['KeyD'] || moveKeys['ArrowRight']) { moveDX += spd; manualMove = true; }
+
+                if (moveDX && moveDZ) {
+                    moveDX /= Math.SQRT2;
+                    moveDZ /= Math.SQRT2;
+                }
+                const forkliftRadius = 0.65;
+
+                if (manualMove) {
+                    pendingStationToOpen = null;
+                    const curX = playerGroup.position.x;
+                    const curZ = playerGroup.position.z;
+                    const nextX = curX + moveDX;
+                    const nextZ = curZ + moveDZ;
+
+                    if (!checkCircleAABBCollision(nextX, nextZ, forkliftRadius)) {
+                        playerGroup.position.x = nextX;
+                        playerGroup.position.z = nextZ;
+                    } else if (!checkCircleAABBCollision(nextX, curZ, forkliftRadius)) {
+                        playerGroup.position.x = nextX;
+                        triggerCollisionBump(nextX, curZ);
+                    } else if (!checkCircleAABBCollision(curX, nextZ, forkliftRadius)) {
+                        playerGroup.position.z = nextZ;
+                        triggerCollisionBump(curX, nextZ);
+                    } else {
+                        triggerCollisionBump(curX, curZ);
+                    }
+
+                    playerTargetPos.copy(playerGroup.position);
+                    if (Math.abs(moveDX) > 0.001 || Math.abs(moveDZ) > 0.001) {
+                        playerGroup.rotation.y = Math.atan2(moveDX, moveDZ);
+                    }
+                } else {
+                    const dx = playerTargetPos.x - playerGroup.position.x;
+                    const dz = playerTargetPos.z - playerGroup.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+
+                    if (dist > 0.12) {
+                        const step = Math.min(dist, 0.12 * frameScale);
+                        const stepX = (dx / dist) * step;
+                        const stepZ = (dz / dist) * step;
+                        const curX = playerGroup.position.x;
+                        const curZ = playerGroup.position.z;
+
+                        if (!checkCircleAABBCollision(curX + stepX, curZ + stepZ, forkliftRadius)) {
+                            playerGroup.position.x += stepX;
+                            playerGroup.position.z += stepZ;
+                        } else if (!checkCircleAABBCollision(curX + stepX, curZ, forkliftRadius)) {
+                            playerGroup.position.x += stepX;
+                        } else if (!checkCircleAABBCollision(curX, curZ + stepZ, forkliftRadius)) {
+                            playerGroup.position.z += stepZ;
+                        } else {
+                            playerTargetPos.copy(playerGroup.position);
+                            if (pendingStationToOpen) {
+                                const stToOpen = pendingStationToOpen;
+                                pendingStationToOpen = null;
+                                openStationPopup(stToOpen);
+                            }
+                        }
+                        playerGroup.rotation.y = Math.atan2(dx, dz);
+                    } else if (pendingStationToOpen) {
+                        const stToOpen = pendingStationToOpen;
+                        pendingStationToOpen = null;
+                        openStationPopup(stToOpen);
+                    }
+                }
+            }
+
+            if (bumpRingMesh && bumpRingTimer > 0) {
+                bumpRingTimer--;
+                bumpRingMesh.scale.setScalar(1 + (15 - bumpRingTimer) * 0.04);
+                if (bumpRingTimer <= 0) bumpRingMesh.visible = false;
+            }
+
+            npcCustomers.forEach((npc, idx) => {
+                npc.position.y = 0.2 + Math.abs(Math.sin(time * 2 + idx)) * 0.04;
+            });
+
+            for (let i = celebrationParticles.length - 1; i >= 0; i--) {
+                const p = celebrationParticles[i];
+                p.position.add(p.userData.vel);
+                p.userData.vel.y -= 0.008;
+                p.rotation.x += 0.1;
+                p.rotation.y += 0.1;
+                p.userData.life--;
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    celebrationParticles.splice(i, 1);
+                }
+            }
+
+            updateCargoHint();
+            updateFloatingBubblesPosition();
+            renderer.render(scene, camera);
+        }
+
+        // =====================================================
+        // INITIALIZATION ON WINDOW LOAD
+        // =====================================================
+        window.onload = function () {
+            restoreProgress();
+            updatePlayerHUD();
+            loadModule1Preset(0);
+            renderModule2Question();
+            renderModule3Case();
+            loadModule4Problem(0);
+            loadModule5Preset(1);
+            updateQuestBoardUI();
+            initIsometric3DWorld();
+        };
+    </script>
+    <script src="warehouse-progression.js"></script>
+    <script src="learning-game.js"></script>
+</body>
+</html>
