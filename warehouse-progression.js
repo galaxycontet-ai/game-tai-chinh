@@ -59,7 +59,13 @@ function updateWarehouseUI() {
         button.disabled = bought || locked || playerXP < upgrade.xp || playerCash < upgrade.price || warehouseProgress.carrying;
         button.textContent = bought ? `✓ ${upgrade.name}` : `${upgrade.name} · $${upgrade.price.toLocaleString()} · ${upgrade.xp} XP`;
     });
+    const upgrades = document.getElementById('warehouse-upgrades');
+    if (upgrades) upgrades.hidden = learning.caseIndex < 4;
+    const footer = document.querySelector?.('body > footer');
+    if (footer) footer.style.display = learning.caseIndex >= 3 ? 'flex' : 'none';
     for (let id = 1; id <= 5; id++) {
+        const bubble = document.getElementById('station-bubble-' + id);
+        if (bubble) bubble.style.display = learning.caseIndex >= 3 && stationUnlocked(id) ? '' : 'none';
         const dock = document.getElementById('dock-btn-' + id);
         if (dock) {
             dock.setAttribute('aria-disabled', String(!stationUnlocked(id)));
@@ -75,11 +81,11 @@ function initWarehouseProgression() {
     panel.setAttribute('aria-label', 'Tiến trình kho và nhiệm vụ vận chuyển');
     panel.innerHTML = `<strong id="warehouse-level"></strong>
         <p id="warehouse-deliveries"></p><p id="warehouse-mission"></p>
-        <button onclick="openLearning()">Tiếp tục học / xem sổ</button>
+        <button onclick="openLearning()">Làm việc tiếp theo</button>
         <button onclick="openGameHelp()">Hướng dẫn chơi</button><p id="warehouse-cargo"></p>
         <p>WASD / bấm sàn để lái · E hoặc nút bên dưới để nâng/giao hàng.</p>
-        <button id="cargo-action" onclick="interactCargo()">Đến gần pallet để nâng hàng</button>
-        <details><summary>Nâng cấp kho</summary>
+        <button id="cargo-go" onclick="approachCargo()">Đưa xe tới hàng</button><button id="cargo-action" onclick="interactCargo()">Đến gần pallet để nâng hàng</button>
+        <details id="warehouse-upgrades"><summary>Nâng cấp kho</summary>
         ${Object.keys(WAREHOUSE_UPGRADES).map(key => `<button id="upgrade-${key}" onclick="buyWarehouseUpgrade('${key}')"></button>`).join('')}
         <small>Ngân sách nâng cấp tách khỏi tiền doanh nghiệp. Kệ/xe mở sau ca 3; khu xuất mở sau ca 6. Không cần mua để tiếp tục học.</small>
         </details>`;
@@ -126,7 +132,8 @@ function syncWarehouseWorld() {
     cargoMesh.visible = currentLearningStep()?.kind === 'move' || lessonLedger().units > 0;
     cargoDestination.visible = currentLearningStep()?.kind === 'move';
     const target = cargoTarget();
-    cargoDestination.position.set(target.x, 0.24, target.z);
+    const marker = warehouseProgress.carrying ? target : learningCargoPoint();
+    cargoDestination.position.set(marker.x, 0.24, marker.z);
 }
 
 function updateCargoHint() {
@@ -136,6 +143,13 @@ function updateCargoHint() {
     const button = document.getElementById('cargo-action');
     const moveStep = currentLearningStep()?.kind === 'move';
     button.disabled = isPopupOpen || !near || !moveStep;
+    const go = document.getElementById('cargo-go');
+    if (go) {
+        go.hidden = !moveStep;
+        go.disabled = isPopupOpen || near;
+        go.textContent = warehouseProgress.carrying ? 'Đưa xe tới chỗ đặt hàng' : 'Đưa xe tới kiện hàng';
+    }
+    setElText('warehouse-cargo', moveStep ? (warehouseProgress.carrying ? '2. Đi đến vòng vàng rồi nhấn E để đặt hàng.' : '1. Đến vòng vàng rồi nhấn E để lấy hàng.') : 'Chọn Làm việc tiếp theo.');
     const text = !moveStep ? 'Mở bài học để tiếp tục' : warehouseProgress.carrying
         ? near ? 'E · Giao pallet tại ô đích' : `Đang chở hàng → ${cargoTarget().name}`
         : near ? 'E · Nâng pallet' : 'Đến gần pallet ở khu nhận hàng';
@@ -164,4 +178,12 @@ function interactCargo() {
     updateWarehouseUI();
     updateCargoHint();
     saveProgress();
+}
+
+function approachCargo() {
+    if (isPopupOpen || currentLearningStep()?.kind !== 'move' || !playerGroup) return;
+    const point = warehouseProgress.carrying ? cargoTarget() : learningCargoPoint();
+    pendingStationToOpen = null;
+    playerTargetPos.set(point.x, 0.2, point.z);
+    show3DToast('Xe đang đến vòng vàng. Khi xe dừng, nhấn E.');
 }

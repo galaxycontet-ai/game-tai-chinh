@@ -41,8 +41,8 @@ function buildLesson(index, variant) {
                 ['Có, vì xe đã giao pallet', 'Chưa, chỉ thay đổi vị trí hàng'], 1,
                 'Chuyển nội bộ không phải bán cho khách; không tự tạo doanh thu.')];
     } else if (index === 1) {
-        steps = [choose('Mua chịu: đã nhận hàng nhưng chưa trả tiền. Khoản nào tăng?',
-            ['Inventory và Accounts payable', 'Inventory và Cash', 'Cost of goods sold và Cash'], 0,
+        steps = [choose('Nhận hàng hôm nay, trả tiền sau. Điều gì thay đổi?',
+            ['Hàng trong kho tăng; tiền nợ nhà cung cấp tăng', 'Hàng tăng; tiền mặt tăng', 'Chi phí tăng; tiền mặt tăng'], 0,
             'Hàng tồn và khoản phải trả tăng. Mua chịu chưa làm giảm tiền.'),
             q(`Mua chịu ${n} loa × $${cost}. Khoản phải trả tăng bao nhiêu?`, purchase,
                 'Có nghĩa vụ trả nhà cung cấp, không ghi doanh thu.', {units:n, inventory:purchase, payable:purchase},
@@ -213,7 +213,8 @@ function finishLearningStep() {
     syncWarehouseWorld();
     renderLearning();
     updateWarehouseUI();
-    setLearningFeedback('Đã xác nhận. ' + step.why + (step.entry ? ' Bút toán: ' + step.entry : ''));
+    setLearningFeedback('Đúng rồi. ' + step.why);
+    if (currentLearningStep()?.kind === 'move') closeLearning();
 }
 
 function nextLearningRound() {
@@ -221,7 +222,7 @@ function nextLearningRound() {
     if (learning.round >= 2 && learning.assisted) {
         learning.variant = learning.variant >= 19 ? 4 : learning.variant + 1;
         show3DToast('Luyện tập đã hoàn thành. Thử dữ liệu mới, tự làm để xác nhận thành thạo.');
-    } else if (learning.round < 3) {
+    } else if (learning.round < 3 && learning.caseIndex !== 0) {
         learning.round++;
         learning.variant = learning.round;
     } else {
@@ -269,25 +270,25 @@ function renderLearning() {
     const lesson = currentLesson(), step = currentLearningStep(), book = lessonLedger();
     const rounds = ['Làm cùng hướng dẫn','Luyện tập có gợi ý','Tự làm 1/2','Tự làm 2/2'];
     const summaryOnly = [0,5,6,7].includes(learning.caseIndex);
-    dialog.innerHTML = `<header><div><small>CA ${learning.caseIndex}/8 · ${rounds[learning.round]}</small>
+    dialog.innerHTML = `<header><div><small>${learning.caseIndex === 0 ? 'LÀM QUEN · CHỈ LÀM MỘT LẦN' : `BÀI ${learning.caseIndex}/8 · ${rounds[learning.round]}`}</small>
         <h2 id="learning-title">${lesson.title}</h2></div><div><button onclick="openGameHelp()">Hướng dẫn chơi</button><button onclick="closeLearning()" aria-label="Đóng bài học">Về kho · Esc</button></div></header>
-        <p>${lesson.description}</p><progress aria-label="Tiến độ ca" max="${lesson.steps.length}" value="${learning.step}"></progress>
-        <p>Bước ${Math.min(learning.step+1,lesson.steps.length)}/${lesson.steps.length}. ${learning.round>=2 ? 'Để qua ca: tự làm đúng hai tình huống mới; dùng gợi ý hoặc sửa sai vẫn được luyện lại.' : 'Có thể xem hướng dẫn và sửa sai, không trừ tiền.'}</p>
-        ${summaryOnly ? '<p>Ca này là mô phỏng khái niệm riêng; không cộng vào sổ giao dịch mua/bán của ca khác.</p>' :
-        `<div class="learning-ledger" aria-label="Sổ doanh nghiệp của riêng ca này">
+        ${learning.caseIndex >= 4 ? `<p>${lesson.description}</p>` : '<details><summary>Xem tình huống và số liệu</summary><p>' + lesson.description + '</p></details>'}<progress aria-label="Tiến độ ca" max="${lesson.steps.length}" value="${learning.step}"></progress>
+        <p>Bước ${Math.min(learning.step+1,lesson.steps.length)}/${lesson.steps.length}. ${learning.round>=2 ? 'Tự làm, hoặc chọn gợi ý nếu cần.' : 'Làm từng bước. Sai có thể sửa lại.'}</p>
+        ${summaryOnly ? '' :
+        `<details><summary>Xem sổ: hàng và tiền thay đổi thế nào?</summary><div class="learning-ledger" aria-label="Sổ doanh nghiệp của riêng ca này">
         <span>Tiền doanh nghiệp <b>$${book.cash.toFixed(2)}</b></span><span>Hàng thuộc DN <b>${book.units} loa · $${book.inventory.toFixed(2)}</b></span>
         <span>Phải trả <b>$${book.payable.toFixed(2)}</b></span><span>Phải thu <b>$${book.receivable.toFixed(2)}</b></span><span>Doanh thu thuần <b>$${book.revenue.toFixed(2)}</b></span>
-        <span>Giá vốn <b>$${book.cogs.toFixed(2)}</b></span><span>Lãi gộp <b>$${(book.revenue-book.cogs).toFixed(2)}</b></span></div>`}
+        <span>Giá vốn <b>$${book.cogs.toFixed(2)}</b></span><span>Lãi gộp <b>$${(book.revenue-book.cogs).toFixed(2)}</b></span></div></details>`}
         ${learning.completed ? '<h3>Hoàn thành chương trình!</h3><p>Bạn đã tự làm hai tình huống mới cho mỗi ca. Các trạm bài tập đã mở để ôn luyện.</p>' : step ?
-        `<h3>${step.prompt}</h3>${learning.round===0 ? `<p class="learning-explain">${step.why}${step.kind!=='move' ? ` Đáp án mẫu: ${step.options ? step.options[step.answer] : step.answer}.` : ''}</p>` : ''}
-        ${step.kind==='number' ? `<form id="learning-answer"><label for="learning-number">Kết quả (USD hoặc đơn vị theo câu hỏi)</label><input id="learning-number" inputmode="decimal" autocomplete="off" required><button type="submit">Kiểm tra và xác nhận</button></form>` :
+        `<h3>${step.prompt}</h3>${learning.round===0 && step.kind !== 'move' ? `<p class="learning-explain">${learning.caseIndex === 0 ? (learning.step === 0 ? `Thẻ hàng ghi ${lesson.units} loa: đó là ${lesson.units} chiếc loa.` : learning.step === 1 ? 'Giá mua là số tiền mình trả để có một chiếc loa.' : 'Đưa hàng sang chỗ khác trong kho chưa phải là bán cho khách.') : step.why}</p>` : ''}
+        ${step.kind==='number' && learning.caseIndex===0 ? `<button class="learning-option" onclick="answerLearning(${step.answer})">${step.answer} chiếc loa</button><button class="learning-option" onclick="answerLearning(1)">1 chiếc loa</button>` : step.kind==='number' ? `<form id="learning-answer"><label for="learning-number">Kết quả (USD hoặc đơn vị theo câu hỏi)</label><input id="learning-number" inputmode="decimal" autocomplete="off" required><button type="submit">Trả lời</button></form>` :
         step.kind==='choice' ? step.options.map((option,i)=>`<button class="learning-option" onclick="answerLearning(${i})">${option}</button>`).join('') :
         `<p>Pallet: ${step.direction==='out' ? lesson.sold : lesson.units} loa. ${step.direction==='out' ? 'Lấy tại A01 → giao khu xuất.' : 'Lấy tại khu nhận → cất A01.'}</p>
         <button onclick="closeLearning()">Về kho để thực hiện bằng xe nâng</button>
         ${(learning.caseIndex>0 || learning.round>0) ? '<button onclick="finishLearningStep()">Xác nhận vận chuyển tự động (bỏ qua lái xe)</button>' : ''}`}
-        <button onclick="hintLearning()">Giải thích / gợi ý</button>` :
+        <button onclick="hintLearning()">Tôi cần gợi ý</button>` :
         `<h3>Đã xử lý xong tình huống</h3><p>${learning.round>=2 && learning.assisted ? 'Bạn đã dùng hỗ trợ hoặc sửa sai. Tiếp theo là dữ liệu mới để tự làm lại, không bị phạt.' : 'Xem lại thay đổi trong sổ trước khi tiếp tục.'}</p>
-        <button onclick="nextLearningRound()">${learning.round===3 && !learning.assisted ? 'Xác nhận thành thạo và nhận thưởng' : 'Tiếp tục'}</button>`}
+        <button onclick="nextLearningRound()">${(learning.caseIndex===0 || learning.round===3) && !learning.assisted ? 'Xong! Sang bài tiếp theo' : 'Tiếp tục'}</button>`}
         <p id="learning-feedback" role="status" aria-live="polite"></p>`;
     dialog.querySelector('form')?.addEventListener('submit',event=>{
         event.preventDefault(); answerLearning(dialog.querySelector('input').value);
@@ -347,10 +348,11 @@ function initLearning() {
     dialog.addEventListener('cancel',event=>{event.preventDefault();closeLearning();});
     document.body.appendChild(dialog);
     const style = document.createElement('style');
-    style.textContent = `body>aside{display:none}#learning-dialog{width:min(760px,94vw);max-height:86dvh;overflow:auto;margin:auto;padding:24px;background:#faf8f1;color:#263746;border:2px solid #657787;border-radius:16px;font-size:15px}#learning-dialog::backdrop{background:#142330aa}#learning-dialog header{display:flex;justify-content:space-between;gap:12px;align-items:start}#learning-dialog h2{font-size:22px;font-weight:800}#learning-dialog h3{font-size:18px;font-weight:800;margin:16px 0}#learning-dialog p{margin:12px 0;line-height:1.6}#learning-dialog button{background:#263746;color:white;border:2px solid transparent;border-radius:8px;padding:10px 14px;margin:5px 5px 5px 0}#learning-dialog button:focus-visible,#learning-dialog input:focus-visible{outline:3px solid #d99118;outline-offset:2px}#learning-dialog input{display:block;border:2px solid #657787;padding:9px;width:100%;margin:8px 0;background:white}#learning-dialog progress{width:100%;accent-color:#16805d}#learning-dialog .learning-option{display:block;width:100%;text-align:left}.learning-ledger{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;background:#e9efed;padding:12px;border-radius:10px}.learning-ledger b{display:block}.learning-explain{background:#fff0cc;padding:12px}#learning-feedback{border-left:4px solid #16805d;padding-left:12px}`;
+    style.textContent = `body>aside{display:none!important}#learning-dialog details{margin:12px 0;color:#52636b}#learning-dialog summary{cursor:pointer}#learning-dialog .learning-explain{font-size:14px}body>footer{display:none}#btn-beginner-mode,#btn-collider-debug{display:none}#learning-dialog h3{line-height:1.5}#learning-dialog{max-width:600px!important}#warehouse-panel{font-size:14px!important}#warehouse-panel details{margin-top:12px}#learning-dialog{width:min(760px,94vw);max-height:86dvh;overflow:auto;margin:auto;padding:24px;background:#faf8f1;color:#263746;border:2px solid #657787;border-radius:16px;font-size:15px}#learning-dialog::backdrop{background:#142330aa}#learning-dialog header{display:flex;justify-content:space-between;gap:12px;align-items:start}#learning-dialog h2{font-size:22px;font-weight:800}#learning-dialog h3{font-size:18px;font-weight:800;margin:16px 0}#learning-dialog p{margin:12px 0;line-height:1.6}#learning-dialog button{background:#263746;color:white;border:2px solid transparent;border-radius:8px;padding:10px 14px;margin:5px 5px 5px 0}#learning-dialog button:focus-visible,#learning-dialog input:focus-visible{outline:3px solid #d99118;outline-offset:2px}#learning-dialog input{display:block;border:2px solid #657787;padding:9px;width:100%;margin:8px 0;background:white}#learning-dialog progress{width:100%;accent-color:#16805d}#learning-dialog .learning-option{display:block;width:100%;text-align:left}.learning-ledger{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;background:#e9efed;padding:12px;border-radius:10px}.learning-ledger b{display:block}.learning-explain{background:#fff0cc;padding:12px}#learning-feedback{border-left:4px solid #16805d;padding-left:12px}`;
     document.head.appendChild(style);
     if (currentLearningStep()?.kind !== 'move') warehouseProgress.carrying = false;
     syncWarehouseWorld();
     updateWarehouseUI();
     openLearning();
+    if (currentLearningStep()?.kind === 'move') closeLearning();
 }
